@@ -1,4 +1,5 @@
 use crate::commands::capture::AppState;
+use crate::storage::database::Database;
 use crate::storage::models::{CapturedContent, ContentListCounts, ContentListItem};
 use crate::storage::repository::Repository;
 use serde::Serialize;
@@ -50,10 +51,7 @@ pub fn get_content_page_with_info(
         )
         .map_err(|e| e.to_string())?;
 
-    let db_path = dirs::data_dir()
-        .unwrap_or_default()
-        .join("com.openwiki.app")
-        .join("openwiki.db");
+    let db_path = Database::db_path();
     let disk_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
     let disk_mb = disk_bytes as f64 / (1024.0 * 1024.0);
 
@@ -100,10 +98,7 @@ pub fn get_filtered_content_list_page_with_info(
         .get_content_list_counts(date_from.as_deref(), date_to.as_deref(), exclude_sensitive)
         .map_err(|e| e.to_string())?;
 
-    let db_path = dirs::data_dir()
-        .unwrap_or_default()
-        .join("com.openwiki.app")
-        .join("openwiki.db");
+    let db_path = Database::db_path();
     let disk_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
     let disk_mb = disk_bytes as f64 / (1024.0 * 1024.0);
 

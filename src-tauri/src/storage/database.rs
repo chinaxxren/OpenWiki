@@ -126,6 +126,13 @@ impl Database {
         Ok(data_dir.join("openwiki.db"))
     }
 
+    pub fn db_path() -> PathBuf {
+        dirs::data_dir()
+            .unwrap_or_default()
+            .join("com.openwiki.app")
+            .join("openwiki.db")
+    }
+
     fn run_migrations(&self) -> Result<(), Box<dyn std::error::Error>> {
         let conn = self.conn.lock().map_err(|e| format!("Lock error: {}", e))?;
 

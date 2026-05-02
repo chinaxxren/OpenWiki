@@ -270,18 +270,13 @@ impl Repository {
             .map_err(|e| format!("Lock error: {}", e))?;
 
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-        let mut conditions = vec!["is_deleted = 0".to_string()];
-        if let Some(start) = date_from.filter(|value| !value.is_empty()) {
-            conditions.push("DATE(captured_at) >= ?".to_string());
-            params.push(Box::new(start.to_string()));
-        }
-        if let Some(end) = date_to.filter(|value| !value.is_empty()) {
-            conditions.push("DATE(captured_at) <= ?".to_string());
-            params.push(Box::new(end.to_string()));
-        }
-        if exclude_sensitive {
-            conditions.push("(raw_text IS NULL OR contains_sensitive(raw_text) = 0)".to_string());
-        }
+        let filter_clause = Self::build_content_list_filter_clause(
+            None,
+            date_from,
+            date_to,
+            exclude_sensitive,
+            &mut params,
+        );
 
         let query = format!(
             "SELECT
@@ -300,7 +295,7 @@ impl Repository {
             IMPORT_SOURCE_APP_CONTENT,
             IMPORT_SOURCE_APP_MARKDOWN,
             IMPORT_SOURCE_APP_CONTENT,
-            conditions.join(" AND "),
+            filter_clause,
         );
 
         let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
