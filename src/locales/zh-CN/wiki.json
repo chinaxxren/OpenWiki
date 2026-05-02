@@ -64,7 +64,7 @@
     "confidence": "置信度",
     "tags": "标签",
     "overview": "总览",
-    "staleWarning": "⚠ 部分来源已失效，正文待更新",
+    "staleWarning": "部分来源已失效，正文待更新",
     "confirmDelete": "确认删除",
     "cancel": "取消",
     "deleteTooltip": "删除页面",

@@ -5,7 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import type { BriefingTopic } from "../../services/radarService";
 import type { CapturedContent } from "../../types/content";
-import { getContentsByIds } from "../../services/storageService";
+import { fetchContentsByIds } from "../../services/contentUpdateService";
 import { FullTextOverlay } from "../content-list/ContentCard";
 
 interface InsightDetailProps {
@@ -28,7 +28,7 @@ export function InsightDetail({ topic, idMap, contents, onBack }: InsightDetailP
       .filter((id): id is string => !!id && !contents.find((c) => c.id === id));
 
     if (missingIds.length > 0) {
-      getContentsByIds(missingIds).then(setExtraContents).catch(() => {});
+      fetchContentsByIds(missingIds).then(setExtraContents).catch(() => {});
     }
   }, [topic.evidence_indices, idMap, contents]);
 

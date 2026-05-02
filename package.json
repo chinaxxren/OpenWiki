@@ -13,6 +13,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:logic": "npx --yes tsx --test src/features/content-list/contentListLogic.test.ts src/features/content-list/contentReloadLogic.test.ts src/features/weekly-report/reportViewLogic.test.ts src/features/digest/radarViewLogic.test.ts src/appSearchLogic.test.ts src/services/contentUpdateService.test.ts src/services/entityBackedContentService.test.ts && npx tsc --noEmit --module esnext --moduleResolution bundler --target ES2022 --types node --skipLibCheck src/features/content-list/contentListLogic.ts src/features/content-list/contentListLogic.test.ts src/features/content-list/contentReloadLogic.ts src/features/content-list/contentReloadLogic.test.ts src/features/weekly-report/reportViewLogic.ts src/features/weekly-report/reportViewLogic.test.ts src/features/digest/radarViewLogic.ts src/features/digest/radarViewLogic.test.ts src/appSearchLogic.ts src/appSearchLogic.test.ts src/services/contentUpdateService.ts src/services/contentUpdateService.test.ts src/services/entityBackedContentService.ts src/services/entityBackedContentService.test.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -26,7 +27,6 @@
     "d3-force": "^3.0.0",
     "framer-motion": "^11",
     "i18next": "^26.0.4",
-    "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^1.6.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

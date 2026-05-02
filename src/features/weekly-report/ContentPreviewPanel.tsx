@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
+import { FileText, Image as ImageIcon, Link2, Paperclip, type LucideIcon } from "lucide-react";
 import type { CapturedContent } from "../../types/content";
 
 interface ContentPreviewPanelProps {
@@ -90,13 +91,13 @@ export function ContentPreviewPanel({ items, onClose }: ContentPreviewPanelProps
 
 function ContentPreviewItem({ content }: { content: CapturedContent }) {
   const { t } = useTranslation("report");
-  const typeConfig: Record<string, { icon: string; label: string }> = {
-    image: { icon: "🖼️", label: t("contentType.image") },
-    url: { icon: "🔗", label: t("contentType.url") },
-    text: { icon: "📝", label: t("contentType.text") },
-    mixed: { icon: "📎", label: t("contentType.mixed") },
+  const typeConfig: Record<string, { icon: LucideIcon; label: string }> = {
+    image: { icon: ImageIcon, label: t("contentType.image") },
+    url: { icon: Link2, label: t("contentType.url") },
+    text: { icon: FileText, label: t("contentType.text") },
+    mixed: { icon: Paperclip, label: t("contentType.mixed") },
   };
-  const { icon, label } = typeConfig[content.content_type] || typeConfig.text;
+  const { icon: TypeIcon, label } = typeConfig[content.content_type] || typeConfig.text;
 
   const isUrl = content.content_type === "url";
   const hasSourceUrl = isUrl && !!content.source_url;
@@ -118,7 +119,7 @@ function ContentPreviewItem({ content }: { content: CapturedContent }) {
       <div className="flex items-start gap-2.5">
         {/* Type badge */}
         <div className="w-7 h-7 rounded-lg glass flex items-center justify-center flex-shrink-0 shadow-sm">
-          <span className="text-sm">{icon}</span>
+          <TypeIcon className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
         </div>
 
         <div className="flex-1 min-w-0">

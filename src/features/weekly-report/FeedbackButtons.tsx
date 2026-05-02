@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { Check, Hand, ThumbsUp, type LucideIcon } from "lucide-react";
 import { submitFeedback } from "../../services/reportService";
 import type { FeedbackType } from "../../types/report";
 
@@ -52,7 +53,7 @@ export function FeedbackButtons({
         state={interestedState}
         disabled={isDisabled && interestedState === "idle"}
         idleLabel={t("feedback.interested")}
-        idleIcon="👍"
+        idleIcon={ThumbsUp}
         confirmLabel={t("feedback.recorded")}
         onClick={() => handleFeedback("interested")}
         variant="interested"
@@ -61,7 +62,7 @@ export function FeedbackButtons({
         state={dismissedState}
         disabled={isDisabled && dismissedState === "idle"}
         idleLabel={t("feedback.dismissed")}
-        idleIcon="👋"
+        idleIcon={Hand}
         confirmLabel={t("feedback.recorded")}
         onClick={() => handleFeedback("dismissed")}
         variant="dismissed"
@@ -74,7 +75,7 @@ interface FeedbackButtonProps {
   state: FeedbackState;
   disabled: boolean;
   idleLabel: string;
-  idleIcon: string;
+  idleIcon: LucideIcon;
   confirmLabel: string;
   onClick: () => void;
   variant: "interested" | "dismissed";
@@ -89,6 +90,7 @@ function FeedbackButton({
   onClick,
   variant,
 }: FeedbackButtonProps) {
+  const IdleIcon = idleIcon;
   const baseClasses =
     "relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer select-none overflow-hidden";
 
@@ -125,7 +127,7 @@ function FeedbackButton({
             transition={{ duration: 0.15 }}
             className="flex items-center gap-1.5"
           >
-            <span>{idleIcon}</span>
+            <IdleIcon className="w-3.5 h-3.5" />
             <span>{idleLabel}</span>
           </motion.span>
         )}
@@ -150,19 +152,7 @@ function FeedbackButton({
             transition={{ duration: 0.15 }}
             className="flex items-center gap-1.5"
           >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <Check className="w-3.5 h-3.5" />
             <span>{confirmLabel}</span>
           </motion.span>
         )}

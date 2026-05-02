@@ -4,6 +4,7 @@ export interface CapturedContent {
   id: string;
   content_type: ContentType;
   raw_text?: string;
+  raw_text_length?: number;
   image_path?: string;
   thumbnail_path?: string;
   source_app: string;
@@ -24,6 +25,8 @@ export interface CapturedContent {
   wiki_compile_hash?: string;
   wiki_assessed_hash?: string;
   clean_content?: string;
+  has_clean_content?: boolean;
+  detail_complete?: boolean;
 }
 
 export interface CaptureEvent {

@@ -1,13 +1,13 @@
 import { create } from "zustand";
-import type { CapturedContent } from "../types/content";
 import {
   getDigestItems,
   digestItem,
   type DigestAction,
 } from "../services/digestService";
+import { loadEntityBackedContents } from "../services/entityBackedContentService";
 
 interface DigestState {
-  items: CapturedContent[];
+  itemIds: string[];
   remaining: number;
   isLoading: boolean;
   dailyTarget: number;
@@ -16,10 +16,11 @@ interface DigestState {
 
   loadItems: () => Promise<void>;
   doDigest: (id: string, action: DigestAction) => Promise<void>;
+  applyDeletedContent: (id: string) => void;
 }
 
 export const useDigestStore = create<DigestState>((set, get) => ({
-  items: [],
+  itemIds: [],
   remaining: 0,
   isLoading: false,
   dailyTarget: 5,
@@ -29,9 +30,12 @@ export const useDigestStore = create<DigestState>((set, get) => ({
   loadItems: async () => {
     set({ isLoading: true, error: null });
     try {
-      const resp = await getDigestItems();
+      const { result: resp, contentIds } = await loadEntityBackedContents({
+        load: getDigestItems,
+        selectContents: (result) => result.items,
+      });
       set({
-        items: resp.items,
+        itemIds: contentIds,
         remaining: resp.remaining,
         isLoading: false,
       });
@@ -46,9 +50,9 @@ export const useDigestStore = create<DigestState>((set, get) => ({
   doDigest: async (id: string, action: DigestAction) => {
     try {
       await digestItem(id, action);
-      const { items, digestedToday, remaining } = get();
+      const { itemIds, digestedToday, remaining } = get();
       set({
-        items: items.filter((item) => item.id !== id),
+        itemIds: itemIds.filter((currentId) => currentId !== id),
         digestedToday: digestedToday + 1,
         remaining: Math.max(0, remaining - 1),
         error: null,
@@ -56,5 +60,14 @@ export const useDigestStore = create<DigestState>((set, get) => ({
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  applyDeletedContent: (id: string) => {
+    const { itemIds } = get();
+    if (!itemIds.includes(id)) return;
+    set((state) => ({
+      itemIds: state.itemIds.filter((currentId) => currentId !== id),
+      remaining: Math.max(0, state.remaining - 1),
+    }));
   },
 }));

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { FileText, Image as ImageIcon, Link2 } from "lucide-react";
 import type { CapturedContent } from "../../types/content";
 
 interface DigestCardProps {
@@ -22,14 +23,6 @@ function useTimeAgo() {
   };
 }
 
-function typeIcon(type: string): string {
-  switch (type) {
-    case "image": return "📷";
-    case "url": return "🔗";
-    default: return "📝";
-  }
-}
-
 export function DigestCard({ content }: DigestCardProps) {
   const { t } = useTranslation("digest");
   const timeAgo = useTimeAgo();
@@ -41,7 +34,13 @@ export function DigestCard({ content }: DigestCardProps) {
       {/* Meta — fixed top */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs">{typeIcon(content.content_type)}</span>
+          {content.content_type === "image" ? (
+            <ImageIcon className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+          ) : content.content_type === "url" ? (
+            <Link2 className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+          ) : (
+            <FileText className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+          )}
           <span className="text-[11px] text-gray-500 dark:text-slate-400 bg-gray-100/50 dark:bg-white/[0.06] px-2 py-0.5 rounded-full">
             {content.source_app}
           </span>

@@ -1,29 +1,27 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { Check, Flame, Inbox, Sparkles, Star, X } from "lucide-react";
 import { useDigestStore } from "../../stores/digestStore";
+import { useResolvedContents } from "../../stores/contentEntitiesStore";
 import { DigestCard } from "./DigestCard";
 
 export function DigestView() {
   const { t } = useTranslation("digest");
   const {
-    items, remaining, isLoading, digestedToday, error, loadItems, doDigest,
+    itemIds, remaining, isLoading, digestedToday, error, loadItems, doDigest,
   } = useDigestStore();
+  const items = useResolvedContents(itemIds);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => localStorage.getItem("xiaoyun_digest_onboarding_seen") === "1"
+  );
 
   useEffect(() => { loadItems(); }, [loadItems]);
-
-  useEffect(() => {
-    if (!isLoading && remaining > 0 && digestedToday === 0) {
-      if (!localStorage.getItem("xiaoyun_digest_onboarding_seen")) setShowOnboarding(true);
-    }
-  }, [isLoading, remaining, digestedToday]);
-
-  useEffect(() => {
-    if (currentIndex >= items.length && items.length > 0) setCurrentIndex(items.length - 1);
-  }, [items.length, currentIndex]);
+  const safeIndex = items.length === 0 ? 0 : Math.min(currentIndex, items.length - 1);
+  const showOnboarding =
+    !onboardingDismissed && !isLoading && remaining > 0 && digestedToday === 0;
 
   const slide = (dir: "left" | "right", cb: () => void) => {
     setSlideDir(dir);
@@ -31,18 +29,22 @@ export function DigestView() {
   };
 
   const goNext = useCallback(() => {
-    if (currentIndex < items.length - 1) slide("left", () => setCurrentIndex((i) => i + 1));
-  }, [currentIndex, items.length]);
+    if (safeIndex < items.length - 1) {
+      slide("left", () => setCurrentIndex((i) => Math.min(i + 1, items.length - 1)));
+    }
+  }, [safeIndex, items.length]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) slide("right", () => setCurrentIndex((i) => i - 1));
-  }, [currentIndex]);
+    if (safeIndex > 0) {
+      slide("right", () => setCurrentIndex((i) => Math.max(i - 1, 0)));
+    }
+  }, [safeIndex]);
 
   const handleDigest = useCallback((action: "keep" | "archive" | "pin") => {
-    const item = items[currentIndex];
+    const item = items[safeIndex];
     if (!item) return;
     slide("left", () => { doDigest(item.id, action); });
-  }, [items, currentIndex, doDigest]);
+  }, [items, safeIndex, doDigest]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -56,7 +58,7 @@ export function DigestView() {
     return () => window.removeEventListener("keydown", h);
   }, [goPrev, goNext, handleDigest]);
 
-  const currentItem = items[currentIndex];
+  const currentItem = items[safeIndex];
   const allDone = !isLoading && items.length === 0 && digestedToday > 0;
   const noContent = !isLoading && items.length === 0 && digestedToday === 0 && remaining === 0;
 
@@ -73,12 +75,18 @@ export function DigestView() {
       {/* Onboarding */}
       {showOnboarding && (
         <div className="glass rounded-xl p-4 mb-3 flex-shrink-0">
-          <p className="text-sm text-gray-700 dark:text-gray-200 mb-2 font-medium">👋 {t("onboarding.welcome")}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-200 mb-2 font-medium inline-flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-orange-500 dark:text-orange-400" />
+            {t("onboarding.welcome")}
+          </p>
           <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed mb-3">
             {t("onboarding.desc")}
           </p>
           <button
-            onClick={() => { setShowOnboarding(false); localStorage.setItem("xiaoyun_digest_onboarding_seen", "1"); }}
+            onClick={() => {
+              setOnboardingDismissed(true);
+              localStorage.setItem("xiaoyun_digest_onboarding_seen", "1");
+            }}
             className="text-xs text-orange-500 dark:text-orange-400 hover:underline"
           >{t("onboarding.dismiss")}</button>
         </div>
@@ -108,14 +116,14 @@ export function DigestView() {
       {/* Empty states */}
       {allDone && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-4xl mb-3">✨</span>
+          <Sparkles className="w-9 h-9 mb-3 text-orange-500/80 dark:text-orange-400/80" />
           <p className="text-base font-medium text-gray-700 dark:text-gray-200 mb-1">{t("empty.allDoneTitle")}</p>
           <p className="text-xs text-gray-400 dark:text-slate-500">{t("empty.allDoneDesc", { count: digestedToday })}</p>
         </div>
       )}
       {noContent && (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-4xl mb-3">📭</span>
+          <Inbox className="w-9 h-9 mb-3 text-orange-500/80 dark:text-orange-400/80" />
           <p className="text-base font-medium text-gray-700 dark:text-gray-200 mb-1">{t("empty.noContentTitle")}</p>
           <p className="text-xs text-gray-400 dark:text-slate-500">{t("empty.noContentDesc")}</p>
         </div>
@@ -128,9 +136,9 @@ export function DigestView() {
             {/* Left arrow */}
             <button
               onClick={goPrev}
-              disabled={currentIndex === 0}
+              disabled={safeIndex === 0}
               className={`flex-shrink-0 w-12 flex items-center justify-center rounded-xl transition-all
-                ${currentIndex === 0
+                ${safeIndex === 0
                   ? "text-gray-300 dark:text-slate-700 cursor-not-allowed"
                   : "text-gray-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-slate-200"
                 }`}
@@ -154,9 +162,9 @@ export function DigestView() {
             {/* Right arrow */}
             <button
               onClick={goNext}
-              disabled={currentIndex >= items.length - 1}
+              disabled={safeIndex >= items.length - 1}
               className={`flex-shrink-0 w-12 flex items-center justify-center rounded-xl transition-all
-                ${currentIndex >= items.length - 1
+                ${safeIndex >= items.length - 1
                   ? "text-gray-300 dark:text-slate-700 cursor-not-allowed"
                   : "text-gray-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-slate-200"
                 }`}
@@ -177,7 +185,12 @@ export function DigestView() {
                          bg-emerald-50/50 dark:bg-emerald-500/[0.06]
                          hover:bg-emerald-100/50 dark:hover:bg-emerald-500/[0.12]
                          active:scale-95 transition-all"
-            >✓ {t("actions.keep")}</button>
+            >
+              <span className="inline-flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                {t("actions.keep")}
+              </span>
+            </button>
             <button
               onClick={() => handleDigest("archive")}
               className="flex-1 py-2.5 text-sm font-medium rounded-lg border
@@ -186,7 +199,12 @@ export function DigestView() {
                          bg-red-50/50 dark:bg-red-500/[0.06]
                          hover:bg-red-100/50 dark:hover:bg-red-500/[0.12]
                          active:scale-95 transition-all"
-            >✕ {t("actions.archive")}</button>
+            >
+              <span className="inline-flex items-center gap-1">
+                <X className="w-3.5 h-3.5" />
+                {t("actions.archive")}
+              </span>
+            </button>
             <button
               onClick={() => handleDigest("pin")}
               className="flex-1 py-2.5 text-sm font-medium rounded-lg border
@@ -195,14 +213,25 @@ export function DigestView() {
                          bg-amber-50/50 dark:bg-amber-500/[0.06]
                          hover:bg-amber-100/50 dark:hover:bg-amber-500/[0.12]
                          active:scale-95 transition-all"
-            >★ {t("actions.important")}</button>
+            >
+              <span className="inline-flex items-center gap-1">
+                <Star className="w-3.5 h-3.5" />
+                {t("actions.important")}
+              </span>
+            </button>
           </div>
 
           {/* Progress */}
           <div className="mt-2 mb-1 flex items-center justify-center gap-3 text-xs text-gray-400 dark:text-slate-500 flex-shrink-0">
-            <span>{currentIndex + 1} / {items.length}</span>
+            <span>{safeIndex + 1} / {items.length}</span>
             {digestedToday > 0 && (
-              <><span>·</span><span>🔥 {t("progress.digested", { count: digestedToday })}</span></>
+              <>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+                  {t("progress.digested", { count: digestedToday })}
+                </span>
+              </>
             )}
           </div>
         </>

@@ -6,6 +6,25 @@ export interface StorageInfo {
   disk_usage_mb: number;
 }
 
+export interface ContentPageWithInfo extends StorageInfo {
+  contents: CapturedContent[];
+}
+
+export interface ContentListCounts {
+  all: number;
+  text: number;
+  image: number;
+  url: number;
+  document: number;
+}
+
+export interface FilteredContentListPageWithInfo {
+  contents: CapturedContent[];
+  matching_items: number;
+  disk_usage_mb: number;
+  counts: ContentListCounts;
+}
+
 export interface MarkdownImportEntry {
   file_name: string;
   content: string;
@@ -39,6 +58,38 @@ export async function getAllContent(
   offset?: number
 ): Promise<CapturedContent[]> {
   return invoke("get_all_content", { limit, offset });
+}
+
+export async function getContentPageWithInfo(
+  limit?: number,
+  offset?: number
+): Promise<ContentPageWithInfo> {
+  return invoke("get_content_page_with_info", { limit, offset });
+}
+
+export async function getFilteredContentListPageWithInfo(params: {
+  contentFilter?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  excludeSensitive?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<FilteredContentListPageWithInfo> {
+  return invoke("get_filtered_content_list_page_with_info", {
+    contentFilter: params.contentFilter ?? null,
+    dateFrom: params.dateFrom ?? null,
+    dateTo: params.dateTo ?? null,
+    excludeSensitive: params.excludeSensitive ?? false,
+    limit: params.limit,
+    offset: params.offset,
+  });
+}
+
+export async function getContentForDateRange(
+  startDate: string,
+  endDate: string
+): Promise<CapturedContent[]> {
+  return invoke("get_content_for_date_range", { startDate, endDate });
 }
 
 export async function getStorageInfo(): Promise<StorageInfo> {

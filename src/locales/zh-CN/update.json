@@ -20,7 +20,7 @@
     "autoCheckLabel": "启动时自动检查更新",
     "autoCheckHint": "每次启动应用时静默检查 GitHub 是否有新版本",
     "checkNow": "立即检查更新",
-    "viewReleases": "查看发布记录 ↗",
+    "viewReleases": "查看发布记录",
     "checkFailed": "检查失败：{{error}}"
   }
 }

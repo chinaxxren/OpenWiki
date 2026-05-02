@@ -1,6 +1,21 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  Inbox,
+  Link2,
+  LoaderCircle,
+  Paperclip,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
 import { useDataHubStore } from "../../stores/dataHubStore";
+import { useResolvedContents } from "../../stores/contentEntitiesStore";
 import { exportDay } from "../../services/dataHubService";
 import type { CapturedContent, ContentType } from "../../types/content";
 import { ContentCard } from "../content-list/ContentCard";
@@ -19,13 +34,13 @@ function useFormatDateHeader() {
   };
 }
 
-function useTypeConfig(): Record<ContentType, { icon: string; label: string; order: number }> {
+function useTypeConfig(): Record<ContentType, { icon: LucideIcon; label: string; order: number }> {
   const { t } = useTranslation("dataHub");
   return {
-    text: { icon: "📝", label: t("dayDetail.contentType.text"), order: 0 },
-    url: { icon: "🔗", label: t("dayDetail.contentType.url"), order: 1 },
-    image: { icon: "📷", label: t("dayDetail.contentType.image"), order: 2 },
-    mixed: { icon: "📎", label: t("dayDetail.contentType.mixed"), order: 3 },
+    text: { icon: FileText, label: t("dayDetail.contentType.text"), order: 0 },
+    url: { icon: Link2, label: t("dayDetail.contentType.url"), order: 1 },
+    image: { icon: ImageIcon, label: t("dayDetail.contentType.image"), order: 2 },
+    mixed: { icon: Paperclip, label: t("dayDetail.contentType.mixed"), order: 3 },
   };
 }
 
@@ -38,6 +53,7 @@ function ContentGroup({ type, items }: ContentGroupProps) {
   const [expanded, setExpanded] = useState(true);
   const typeConfig = useTypeConfig();
   const config = typeConfig[type];
+  const TypeIcon = config.icon;
 
   return (
     <div className="mb-4">
@@ -47,10 +63,11 @@ function ContentGroup({ type, items }: ContentGroupProps) {
                    hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
       >
         <span className="text-xs text-gray-400 dark:text-slate-500">
-          {expanded ? "▼" : "►"}
+          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         </span>
-        <span>
-          {config.icon} {config.label}
+        <span className="inline-flex items-center gap-1.5">
+          <TypeIcon className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+          {config.label}
         </span>
         <span className="text-xs text-gray-400 dark:text-slate-500">
           ({items.length})
@@ -77,7 +94,7 @@ function WelcomeView() {
   return (
     <div className="flex flex-col items-center justify-center h-full py-20">
       <div className="w-20 h-20 rounded-2xl glass flex items-center justify-center mb-6">
-        <span className="text-4xl">📂</span>
+        <FolderOpen className="w-10 h-10 text-orange-400/80" />
       </div>
       <p className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">
         {t("welcome.title")}
@@ -114,9 +131,10 @@ export function DayDetail() {
   const formatDateHeader = useFormatDateHeader();
   const typeConfig = useTypeConfig();
   const selectedDate = useDataHubStore((s) => s.selectedDate);
-  const dayContents = useDataHubStore((s) => s.dayContents);
+  const dayContentIds = useDataHubStore((s) => s.dayContentIds);
   const isLoading = useDataHubStore((s) => s.isLoading);
   const [isExporting, setIsExporting] = useState(false);
+  const dayContents = useResolvedContents(dayContentIds);
 
   // Group contents by type
   const groupedContents = useMemo(() => {
@@ -178,7 +196,7 @@ export function DayDetail() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              <span>📅</span>
+              <CalendarDays className="w-4 h-4 text-orange-500 dark:text-orange-400" />
               {formatDateHeader(selectedDate)}
             </h2>
             <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
@@ -196,9 +214,9 @@ export function DayDetail() {
                        transition-all duration-150"
           >
             {isExporting ? (
-              <span className="animate-spin text-sm">⏳</span>
+              <LoaderCircle className="w-4 h-4 animate-spin" />
             ) : (
-              <span className="text-sm">📤</span>
+              <Upload className="w-4 h-4" />
             )}
             <span>{t("dayDetail.exportDay")}</span>
           </button>
@@ -209,7 +227,7 @@ export function DayDetail() {
       <div className="flex-1 overflow-y-auto p-6">
         {dayContents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <span className="text-3xl mb-3">📭</span>
+            <Inbox className="w-8 h-8 mb-3 text-orange-400/80" />
             <p className="text-sm text-gray-500 dark:text-slate-400">
               {t("dayDetail.noContentForDay")}
             </p>

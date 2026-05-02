@@ -64,7 +64,7 @@
     "confidence": "Confidence",
     "tags": "Tags",
     "overview": "Overview",
-    "staleWarning": "⚠ Some sources are stale, content needs update",
+    "staleWarning": "Some sources are stale, content needs update",
     "confirmDelete": "Confirm Delete",
     "cancel": "Cancel",
     "deleteTooltip": "Delete Page",

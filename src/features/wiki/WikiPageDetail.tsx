@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
-import { X, BookOpen, User, FileText, GitCompare, Layers, Trash2 } from "lucide-react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { AlertTriangle, Check, X, BookOpen, User, FileText, GitCompare, Layers, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { WikiPage, WikiPageSource } from "../../types/wiki";
 import type { CapturedContent } from "../../types/content";
 import { getPageSources } from "../../services/wikiService";
@@ -24,10 +22,10 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   overview: "browse.pageType.overview",
 };
 
-const SOURCE_STATUS_ICON: Record<string, string> = {
-  active: "✓",
-  stale: "⚠",
-  deleted: "✗",
+const SOURCE_STATUS_ICON: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  active: Check,
+  stale: AlertTriangle,
+  deleted: X,
 };
 
 const SOURCE_STATUS_COLOR: Record<string, string> = {
@@ -35,6 +33,7 @@ const SOURCE_STATUS_COLOR: Record<string, string> = {
   stale: "#CA8A04",
   deleted: "#DC2626",
 };
+const LazyWikiPageMarkdown = lazy(() => import("./WikiPageMarkdown"));
 
 interface WikiPageDetailProps {
   page: WikiPage;
@@ -51,32 +50,35 @@ export function WikiPageDetail({ page, onClose, onDelete, onNavigateToContent }:
   const IconComponent = TYPE_ICONS[page.page_type] || BookOpen;
 
   useEffect(() => {
-    loadSources();
+    let cancelled = false;
+    const load = async () => {
+      setLoadingSources(true);
+      try {
+        const pageSources = await getPageSources(page.id);
+        const enriched = await Promise.all(
+          pageSources.map(async (src) => {
+            try {
+              const content = await invoke<CapturedContent[]>("get_contents_by_ids", {
+                ids: [src.content_id],
+              });
+              return { ...src, content: content[0] };
+            } catch {
+              return { ...src, content: undefined };
+            }
+          })
+        );
+        if (!cancelled) setSources(enriched);
+      } catch (e) {
+        console.error("Failed to load sources:", e);
+      } finally {
+        if (!cancelled) setLoadingSources(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [page.id]);
-
-  async function loadSources() {
-    setLoadingSources(true);
-    try {
-      const pageSources = await getPageSources(page.id);
-      // Fetch content details for each source
-      const enriched = await Promise.all(
-        pageSources.map(async (src) => {
-          try {
-            const content = await invoke<CapturedContent | null>("get_contents_by_ids", {
-              ids: [src.content_id],
-            });
-            return { ...src, content: Array.isArray(content) ? content[0] : undefined };
-          } catch {
-            return { ...src, content: undefined };
-          }
-        })
-      );
-      setSources(enriched);
-    } catch (e) {
-      console.error("Failed to load sources:", e);
-    }
-    setLoadingSources(false);
-  }
 
   const isStale = page.status === "needs_recompile";
 
@@ -106,7 +108,10 @@ export function WikiPageDetail({ page, onClose, onDelete, onNavigateToContent }:
             </span>
             {isStale && (
               <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                {t("detail.staleWarning")}
+                <span className="inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {t("detail.staleWarning")}
+                </span>
               </span>
             )}
           </div>
@@ -174,9 +179,18 @@ export function WikiPageDetail({ page, onClose, onDelete, onNavigateToContent }:
                        prose-code:before:content-none prose-code:after:content-none"
             style={{ fontSize: 14, lineHeight: 1.8 }}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {page.body_markdown}
-            </ReactMarkdown>
+            <Suspense
+              fallback={
+                <p
+                  className="text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap"
+                  style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+                >
+                  {page.body_markdown}
+                </p>
+              }
+            >
+              <LazyWikiPageMarkdown text={page.body_markdown} />
+            </Suspense>
           </article>
 
           {/* Sources section */}
@@ -192,26 +206,30 @@ export function WikiPageDetail({ page, onClose, onDelete, onNavigateToContent }:
               <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>{t("detail.noSources")}</div>
             ) : (
               <div className="space-y-2">
-                {sources.map((src) => (
-                  <button
-                    key={src.id}
-                    onClick={() => src.content && onNavigateToContent?.(src.content_id)}
-                    className="w-full text-left flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-stone-50 dark:hover:bg-white/[0.04]"
-                    style={{ border: "1px solid var(--color-border, #E7E5E4)" }}
-                  >
-                    <span style={{ color: SOURCE_STATUS_COLOR[src.source_status], fontSize: 14, fontWeight: 700 }}>
-                      {SOURCE_STATUS_ICON[src.source_status]}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs truncate" style={{ color: "var(--color-text-primary)" }}>
-                        {src.content?.raw_text?.slice(0, 80) || src.content?.source_url || t("detail.contentDeleted")}
-                      </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                        {src.content?.source_app || t("detail.unknownApp")} · {src.contributed_at?.slice(0, 10)}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                {sources.map((src) => {
+                  const StatusIcon = SOURCE_STATUS_ICON[src.source_status] ?? AlertTriangle;
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => src.content && onNavigateToContent?.(src.content_id)}
+                      className="w-full text-left flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-stone-50 dark:hover:bg-white/[0.04]"
+                      style={{ border: "1px solid var(--color-border, #E7E5E4)" }}
+                    >
+                      <StatusIcon
+                        className="w-4 h-4 flex-shrink-0"
+                        style={{ color: SOURCE_STATUS_COLOR[src.source_status] ?? "#CA8A04" }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs truncate" style={{ color: "var(--color-text-primary)" }}>
+                          {src.content?.raw_text?.slice(0, 80) || src.content?.source_url || t("detail.contentDeleted")}
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                          {src.content?.source_app || t("detail.unknownApp")} · {src.contributed_at?.slice(0, 10)}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -26,8 +26,11 @@ export async function getWikiPage(id: string): Promise<WikiPage | null> {
   return invoke("get_wiki_page", { id });
 }
 
-export async function searchWiki(query: string): Promise<WikiPage[]> {
-  return invoke("search_wiki", { query });
+export async function searchWiki(
+  query: string,
+  limit = 20
+): Promise<WikiPage[]> {
+  return invoke("search_wiki", { query, limit });
 }
 
 export async function getWikiStats(): Promise<WikiStats> {

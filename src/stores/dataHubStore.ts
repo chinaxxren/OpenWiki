@@ -1,28 +1,16 @@
 import { create } from "zustand";
 import {
-  getDatesWithContent,
-  getContentForDate,
-  getExportDir,
-} from "../services/dataHubService";
-import type { CapturedContent } from "../types/content";
-
-interface DateEntry {
-  date: string;
-  count: number;
-}
-
-interface MonthGroup {
-  month: string; // "2026-03"
-  label: string; // "2026年3月"
-  dates: DateEntry[];
-  expanded: boolean;
-  totalCount: number;
-}
+  type MonthGroup,
+  loadDataHubDayContents,
+  loadDataHubExportDir,
+  loadDataHubSidebarData,
+} from "../services/dataHubContentService";
+import { loadEntityBackedContents } from "../services/entityBackedContentService";
 
 interface DataHubState {
   selectedDate: string | null;
   monthGroups: MonthGroup[];
-  dayContents: CapturedContent[];
+  dayContentIds: string[];
   isLoading: boolean;
   exportDir: string;
   totalDates: number;
@@ -32,48 +20,13 @@ interface DataHubState {
   toggleMonth: (month: string) => void;
   loadDateList: () => Promise<void>;
   loadExportDir: () => Promise<void>;
-  removeContent: (id: string) => void;
-}
-
-function groupByMonth(dates: DateEntry[]): MonthGroup[] {
-  const map = new Map<string, DateEntry[]>();
-
-  for (const entry of dates) {
-    const month = entry.date.slice(0, 7); // "YYYY-MM"
-    if (!map.has(month)) {
-      map.set(month, []);
-    }
-    map.get(month)!.push(entry);
-  }
-
-  const groups: MonthGroup[] = [];
-  for (const [month, entries] of map) {
-    const [year, m] = month.split("-");
-    const monthNum = parseInt(m, 10);
-    groups.push({
-      month,
-      label: `${year}年${monthNum}月`,
-      dates: entries.sort((a, b) => b.date.localeCompare(a.date)),
-      expanded: false,
-      totalCount: entries.reduce((sum, e) => sum + e.count, 0),
-    });
-  }
-
-  // Sort descending by month
-  groups.sort((a, b) => b.month.localeCompare(a.month));
-
-  // Auto-expand the most recent month
-  if (groups.length > 0) {
-    groups[0].expanded = true;
-  }
-
-  return groups;
+  applyDeletedContent: (content: { id: string; captured_at: string }) => void;
 }
 
 export const useDataHubStore = create<DataHubState>((set) => ({
   selectedDate: null,
   monthGroups: [],
-  dayContents: [],
+  dayContentIds: [],
   isLoading: false,
   exportDir: "",
   totalDates: 0,
@@ -82,11 +35,14 @@ export const useDataHubStore = create<DataHubState>((set) => ({
   selectDate: async (date: string) => {
     set({ selectedDate: date, isLoading: true });
     try {
-      const contents = await getContentForDate(date);
-      set({ dayContents: contents, isLoading: false });
+      const { contentIds } = await loadEntityBackedContents({
+        load: () => loadDataHubDayContents(date),
+        selectContents: (contents) => contents,
+      });
+      set({ dayContentIds: contentIds, isLoading: false });
     } catch (e) {
       console.error("Failed to load content for date:", e);
-      set({ dayContents: [], isLoading: false });
+      set({ dayContentIds: [], isLoading: false });
     }
   },
 
@@ -100,11 +56,8 @@ export const useDataHubStore = create<DataHubState>((set) => ({
 
   loadDateList: async () => {
     try {
-      const dates = await getDatesWithContent();
-      const groups = groupByMonth(dates);
-      const totalDates = dates.length;
-      const totalItems = dates.reduce((sum, d) => sum + d.count, 0);
-      set({ monthGroups: groups, totalDates, totalItems });
+      const sidebarData = await loadDataHubSidebarData();
+      set(sidebarData);
     } catch (e) {
       console.error("Failed to load date list:", e);
     }
@@ -112,17 +65,55 @@ export const useDataHubStore = create<DataHubState>((set) => ({
 
   loadExportDir: async () => {
     try {
-      const dir = await getExportDir();
+      const dir = await loadDataHubExportDir();
       set({ exportDir: dir });
     } catch (e) {
       console.error("Failed to load export dir:", e);
     }
   },
 
-  removeContent: (id: string) => {
-    set((state) => ({
-      dayContents: state.dayContents.filter((c) => c.id !== id),
+  applyDeletedContent: ({ id, captured_at }) => set((state) => {
+    const dayKey = captured_at.slice(0, 10);
+    const nextMonthGroups = state.monthGroups
+      .map((group) => {
+        let changed = false;
+        const nextDates = group.dates
+          .map((entry) => {
+            if (entry.date !== dayKey) return entry;
+            changed = true;
+            const nextCount = Math.max(0, entry.count - 1);
+            if (nextCount === 0) {
+              return null;
+            }
+            return { ...entry, count: nextCount };
+          })
+          .filter(Boolean) as typeof group.dates;
+
+        if (!changed) return group;
+        if (nextDates.length === 0) {
+          return null;
+        }
+
+        return {
+          ...group,
+          dates: nextDates,
+          totalCount: Math.max(0, group.totalCount - 1),
+        };
+      })
+      .filter(Boolean) as typeof state.monthGroups;
+
+    const nextDayContentIds = state.dayContentIds.filter((currentId) => currentId !== id);
+
+    const selectedDateStillExists = state.selectedDate
+      ? nextMonthGroups.some((group) => group.dates.some((entry) => entry.date === state.selectedDate))
+      : false;
+
+    return {
+      monthGroups: nextMonthGroups,
+      dayContentIds: nextDayContentIds,
       totalItems: Math.max(0, state.totalItems - 1),
-    }));
-  },
+      totalDates: nextMonthGroups.reduce((sum, group) => sum + group.dates.length, 0),
+      selectedDate: selectedDateStillExists ? state.selectedDate : null,
+    };
+  }),
 }));

@@ -20,7 +20,7 @@
     "autoCheckLabel": "Check for updates automatically on launch",
     "autoCheckHint": "Silently checks GitHub for a new version each time the app starts",
     "checkNow": "Check for updates now",
-    "viewReleases": "View release notes ↗",
+    "viewReleases": "View release notes",
     "checkFailed": "Check failed: {{error}}"
   }
 }

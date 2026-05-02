@@ -1,9 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, X, Plus, Trash2, BookOpen, Loader, ChevronLeft, ExternalLink } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { Send, X, Plus, Trash2, BookOpen, Loader, ChevronLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { open as openExternal } from "@tauri-apps/plugin-shell";
 import type { WikiChatSession, WikiChatMessage } from "../../types/wiki";
 import { wikiAsk, getChatSessions, getChatMessages, deleteChatSession, saveMessageAsPage, getWikiPage, getSavedMessageIds } from "../../services/wikiService";
 
@@ -11,6 +8,7 @@ interface WikiAskSidebarProps {
   onClose: () => void;
   onNavigateToPage?: (pageId: string) => void;
 }
+const LazyWikiAnswerMarkdown = lazy(() => import("./WikiAnswerMarkdown"));
 
 export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProps) {
   const { t } = useTranslation("wiki");
@@ -25,22 +23,34 @@ export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProp
   const [view, setView] = useState<"list" | "chat">("list");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadSessions();
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const loadSessions = async () => {
+  const refreshSessions = useCallback(async () => {
     try {
       const s = await getChatSessions(30);
       setSessions(s);
     } catch (e) {
       console.error("Failed to load sessions:", e);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      try {
+        const s = await getChatSessions(30);
+        if (!cancelled) setSessions(s);
+      } catch (e) {
+        console.error("Failed to load sessions:", e);
+      }
+    };
+    void init();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const openSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
@@ -100,7 +110,7 @@ export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProp
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, asstMsg]);
-      loadSessions(); // refresh sidebar list
+      void refreshSessions(); // refresh sidebar list
     } catch (e) {
       const errorMsg: WikiChatMessage = {
         id: crypto.randomUUID(),
@@ -114,7 +124,7 @@ export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProp
       setMessages((prev) => [...prev, errorMsg]);
     }
     setIsAsking(false);
-  }, [input, isAsking, activeSessionId, messages, t]);
+  }, [input, isAsking, activeSessionId, messages, t, refreshSessions]);
 
   const handleSaveAsPage = async (msgId: string) => {
     // Synchronous ref check prevents double-click race
@@ -194,8 +204,8 @@ export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProp
         setResolvedRefs(prev => ({ ...prev, ...newRefs }));
       }
     };
-    resolve();
-  }, [messages]);
+    void resolve();
+  }, [messages, resolvePageRefs, resolvedRefs]);
 
   return (
     <div className="flex flex-col h-full" style={{
@@ -317,41 +327,15 @@ export function WikiAskSidebar({ onClose, onNavigateToPage }: WikiAskSidebarProp
                           overflowWrap: "anywhere",
                           wordBreak: "break-word",
                         }}>
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            // External links open in the system browser via
-                            // the Tauri shell plugin. Without this, clicking
-                            // a link navigates the whole webview and hijacks
-                            // the app window.
-                            a: ({ href, children }) => {
-                              const isExternal = !!href && /^https?:\/\//i.test(href);
-                              return (
-                                <a
-                                  href={href}
-                                  onClick={(e) => {
-                                    if (isExternal && href) {
-                                      e.preventDefault();
-                                      openExternal(href).catch((err) =>
-                                        console.error("Failed to open external URL:", err)
-                                      );
-                                    }
-                                  }}
-                                  className="inline-flex items-baseline gap-0.5"
-                                >
-                                  {children}
-                                  {isExternal && (
-                                    <ExternalLink
-                                      size={10}
-                                      className="inline-block flex-shrink-0 opacity-60"
-                                      style={{ transform: "translateY(1px)" }}
-                                    />
-                                  )}
-                                </a>
-                              );
-                            },
-                          }}
-                        >{msg.content}</ReactMarkdown>
+                        <Suspense
+                          fallback={
+                            <p className="whitespace-pre-wrap" style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                              {msg.content}
+                            </p>
+                          }
+                        >
+                          <LazyWikiAnswerMarkdown text={msg.content} />
+                        </Suspense>
                       </article>
                     </div>
                     {/* Referenced pages */}
