@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[allow(dead_code)]
 pub struct ExportSyncer {
     export_dir: PathBuf,
     last_sync: Arc<Mutex<Option<Instant>>>,
 }
 
+#[allow(dead_code)]
 impl ExportSyncer {
     pub fn new(export_dir: PathBuf) -> Self {
         ExportSyncer {

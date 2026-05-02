@@ -1597,7 +1597,6 @@ pub fn spawn_clean_content_task(
     content_id: String,
     raw_text: String,
 ) {
-    use tauri::Emitter;
     // Need substantial text to clean (bare URLs are too short)
     if raw_text.trim().len() < 200 {
         return;

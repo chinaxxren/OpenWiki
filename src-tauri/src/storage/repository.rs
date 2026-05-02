@@ -1,6 +1,6 @@
 use super::database::Database;
 use super::models::{
-    AttentionInsight, CapturedContent, ContentForAnalysis, ContentType, ReportSection,
+    AttentionInsight, CapturedContent, ContentForAnalysis, ContentListCounts, ContentListItem, ContentType, ReportSection,
     UserFeedback, UserPreference, WeeklyReport,
 };
 use rusqlite::params;
@@ -10,6 +10,9 @@ use std::sync::Arc;
 pub struct Repository {
     db: Arc<Database>,
 }
+
+const IMPORT_SOURCE_APP_MARKDOWN: &str = "Markdown 导入";
+const IMPORT_SOURCE_APP_CONTENT: &str = "导入内容";
 
 impl Repository {
     pub fn new(db: Arc<Database>) -> Self {
@@ -96,6 +99,221 @@ impl Repository {
             results.push(row?);
         }
         Ok(results)
+    }
+
+    fn build_content_list_filter_clause(
+        content_filter: Option<&str>,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
+        exclude_sensitive: bool,
+        params: &mut Vec<Box<dyn rusqlite::ToSql>>,
+    ) -> String {
+        let mut conditions = vec!["is_deleted = 0".to_string()];
+
+        if let Some(start) = date_from.filter(|value| !value.is_empty()) {
+            conditions.push("DATE(captured_at) >= ?".to_string());
+            params.push(Box::new(start.to_string()));
+        }
+        if let Some(end) = date_to.filter(|value| !value.is_empty()) {
+            conditions.push("DATE(captured_at) <= ?".to_string());
+            params.push(Box::new(end.to_string()));
+        }
+
+        match content_filter {
+            Some("document") => {
+                conditions.push(
+                    format!(
+                        "source_app IN ('{}', '{}')",
+                        IMPORT_SOURCE_APP_MARKDOWN, IMPORT_SOURCE_APP_CONTENT
+                    )
+                );
+            }
+            Some(filter) if !filter.is_empty() && filter != "all" => {
+                conditions.push("content_type = ?".to_string());
+                params.push(Box::new(filter.to_string()));
+                conditions.push(
+                    format!(
+                        "source_app NOT IN ('{}', '{}')",
+                        IMPORT_SOURCE_APP_MARKDOWN, IMPORT_SOURCE_APP_CONTENT
+                    )
+                );
+            }
+            _ => {}
+        }
+
+        if exclude_sensitive {
+            conditions.push("(raw_text IS NULL OR contains_sensitive(raw_text) = 0)".to_string());
+        }
+
+        conditions.join(" AND ")
+    }
+
+    pub fn get_filtered_content_list(
+        &self,
+        content_filter: Option<&str>,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
+        exclude_sensitive: bool,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ContentListItem>, Box<dyn std::error::Error>> {
+        let conn = self
+            .db
+            .conn
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let filter_clause = Self::build_content_list_filter_clause(
+            content_filter,
+            date_from,
+            date_to,
+            exclude_sensitive,
+            &mut params,
+        );
+        let query = format!(
+            "SELECT id, content_type,
+                    CASE WHEN raw_text IS NULL THEN NULL ELSE SUBSTR(raw_text, 1, 200) END,
+                    image_path, thumbnail_path, source_app, source_bundle_id, source_url,
+                    user_note, captured_at, content_hash, byte_size, is_deleted, created_at,
+                    updated_at, digested_at, digest_action, summary, tags, wiki_compile_hash,
+                    LENGTH(COALESCE(raw_text, '')),
+                    CASE WHEN clean_content IS NOT NULL AND clean_content != '' THEN 1 ELSE 0 END
+             FROM captured_content
+             WHERE {}
+             ORDER BY captured_at DESC LIMIT ? OFFSET ?",
+            filter_clause
+        );
+
+        params.push(Box::new(limit));
+        params.push(Box::new(offset));
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let mut stmt = conn.prepare(&query)?;
+        let rows = stmt.query_map(param_refs.as_slice(), |row| {
+            Ok(ContentListItem {
+                id: row.get(0)?,
+                content_type: ContentType::from_str(&row.get::<_, String>(1)?),
+                raw_text: row.get(2)?,
+                image_path: row.get(3)?,
+                thumbnail_path: row.get(4)?,
+                source_app: row.get(5)?,
+                source_bundle_id: row.get(6)?,
+                source_url: row.get(7)?,
+                user_note: row.get(8)?,
+                captured_at: row.get(9)?,
+                content_hash: row.get(10)?,
+                byte_size: row.get(11)?,
+                is_deleted: row.get::<_, i32>(12)? != 0,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                digested_at: row.get(15).unwrap_or(None),
+                digest_action: row.get(16).unwrap_or(None),
+                summary: row.get(17).unwrap_or(None),
+                tags: row.get(18).unwrap_or(None),
+                digest: None,
+                wiki_compile_hash: row.get(19).unwrap_or(None),
+                wiki_assessed_hash: None,
+                clean_content: None,
+                detail_complete: false,
+                raw_text_length: row.get(20)?,
+                has_clean_content: row.get::<_, i32>(21)? != 0,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    pub fn count_filtered_content(
+        &self,
+        content_filter: Option<&str>,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
+        exclude_sensitive: bool,
+    ) -> Result<i64, Box<dyn std::error::Error>> {
+        let conn = self
+            .db
+            .conn
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let filter_clause = Self::build_content_list_filter_clause(
+            content_filter,
+            date_from,
+            date_to,
+            exclude_sensitive,
+            &mut params,
+        );
+        let query = format!(
+            "SELECT COUNT(*) FROM captured_content WHERE {}",
+            filter_clause
+        );
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let count = conn.query_row(&query, param_refs.as_slice(), |row| row.get(0))?;
+        Ok(count)
+    }
+
+    pub fn get_content_list_counts(
+        &self,
+        date_from: Option<&str>,
+        date_to: Option<&str>,
+        exclude_sensitive: bool,
+    ) -> Result<ContentListCounts, Box<dyn std::error::Error>> {
+        let conn = self
+            .db
+            .conn
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        let mut conditions = vec!["is_deleted = 0".to_string()];
+        if let Some(start) = date_from.filter(|value| !value.is_empty()) {
+            conditions.push("DATE(captured_at) >= ?".to_string());
+            params.push(Box::new(start.to_string()));
+        }
+        if let Some(end) = date_to.filter(|value| !value.is_empty()) {
+            conditions.push("DATE(captured_at) <= ?".to_string());
+            params.push(Box::new(end.to_string()));
+        }
+        if exclude_sensitive {
+            conditions.push("(raw_text IS NULL OR contains_sensitive(raw_text) = 0)".to_string());
+        }
+
+        let query = format!(
+            "SELECT
+                COUNT(*) AS all_count,
+                SUM(CASE WHEN source_app NOT IN ('{}', '{}') AND content_type = 'text' THEN 1 ELSE 0 END) AS text_count,
+                SUM(CASE WHEN source_app NOT IN ('{}', '{}') AND content_type = 'image' THEN 1 ELSE 0 END) AS image_count,
+                SUM(CASE WHEN source_app NOT IN ('{}', '{}') AND content_type = 'url' THEN 1 ELSE 0 END) AS url_count,
+                SUM(CASE WHEN source_app IN ('{}', '{}') THEN 1 ELSE 0 END) AS document_count
+             FROM captured_content
+             WHERE {}",
+            IMPORT_SOURCE_APP_MARKDOWN,
+            IMPORT_SOURCE_APP_CONTENT,
+            IMPORT_SOURCE_APP_MARKDOWN,
+            IMPORT_SOURCE_APP_CONTENT,
+            IMPORT_SOURCE_APP_MARKDOWN,
+            IMPORT_SOURCE_APP_CONTENT,
+            IMPORT_SOURCE_APP_MARKDOWN,
+            IMPORT_SOURCE_APP_CONTENT,
+            conditions.join(" AND "),
+        );
+
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let counts = conn.query_row(&query, param_refs.as_slice(), |row| {
+            Ok(ContentListCounts {
+                all: row.get::<_, i64>(0)?,
+                text: row.get::<_, i64>(1)?,
+                image: row.get::<_, i64>(2)?,
+                url: row.get::<_, i64>(3)?,
+                document: row.get::<_, i64>(4)?,
+            })
+        })?;
+        Ok(counts)
     }
 
     /// Search content by keyword across raw_text, source_url, source_app, and user_note.
@@ -320,6 +538,7 @@ impl Repository {
         }
     }
 
+    #[allow(dead_code)]
     pub fn content_exists_by_hash(&self, hash: &str) -> Result<bool, Box<dyn std::error::Error>> {
         let conn = self
             .db
@@ -780,10 +999,64 @@ impl Repository {
         Ok(results)
     }
 
+    /// Get all content for an inclusive date range using YYYY-MM-DD strings.
+    pub fn get_content_for_date_range(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<CapturedContent>, Box<dyn std::error::Error>> {
+        let conn = self
+            .db
+            .conn
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
+        let mut stmt = conn.prepare(
+            "SELECT id, content_type, raw_text, image_path, thumbnail_path, source_app, source_bundle_id, source_url, user_note, captured_at, content_hash, byte_size, is_deleted, created_at, updated_at, digested_at, digest_action, summary, tags, digest, wiki_compile_hash, wiki_assessed_hash, clean_content
+             FROM captured_content
+             WHERE DATE(captured_at) >= ?1 AND DATE(captured_at) <= ?2 AND is_deleted = 0
+             ORDER BY captured_at DESC",
+        )?;
+
+        let rows = stmt.query_map(params![start_date, end_date], |row| {
+            Ok(CapturedContent {
+                id: row.get(0)?,
+                content_type: ContentType::from_str(&row.get::<_, String>(1)?),
+                raw_text: row.get(2)?,
+                image_path: row.get(3)?,
+                thumbnail_path: row.get(4)?,
+                source_app: row.get(5)?,
+                source_bundle_id: row.get(6)?,
+                source_url: row.get(7)?,
+                user_note: row.get(8)?,
+                captured_at: row.get(9)?,
+                content_hash: row.get(10)?,
+                byte_size: row.get(11)?,
+                is_deleted: row.get::<_, i32>(12)? != 0,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                digested_at: row.get(15).unwrap_or(None),
+                digest_action: row.get(16).unwrap_or(None),
+                summary: row.get(17).unwrap_or(None),
+                tags: row.get(18).unwrap_or(None),
+                digest: row.get(19).unwrap_or(None),
+                wiki_compile_hash: row.get(20).unwrap_or(None),
+                wiki_assessed_hash: row.get(21).unwrap_or(None),
+                clean_content: row.get(22).unwrap_or(None),
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
     // ========== Digest ==========
 
     /// Get undigested content items, ordered by oldest first.
     /// Used by the "消化" feature to surface content for review.
+    #[allow(dead_code)]
     pub fn get_undigested_content(
         &self,
         limit: i64,
@@ -1545,6 +1818,7 @@ impl Repository {
         Ok(results)
     }
 
+    #[allow(dead_code)]
     pub fn update_source_status(
         &self,
         page_id: &str,
@@ -1609,6 +1883,7 @@ impl Repository {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_edges_for_page(
         &self,
         page_id: &str,
@@ -1747,6 +2022,7 @@ impl Repository {
 
     // ========== Wiki Conversations ==========
 
+    #[allow(dead_code)]
     pub fn save_wiki_conversation(
         &self,
         conv: &super::models::WikiConversation,
@@ -1781,6 +2057,7 @@ impl Repository {
         Ok(results)
     }
 
+    #[allow(dead_code)]
     pub fn update_conversation_saved_page(
         &self,
         conv_id: &str,
@@ -1864,6 +2141,7 @@ impl Repository {
         Ok(confidence)
     }
 
+    #[allow(dead_code)]
     pub fn get_pages_needing_recompile(&self) -> Result<Vec<super::models::WikiPage>, Box<dyn std::error::Error>> {
         self.get_wiki_pages_by_status("needs_recompile")
     }
@@ -1901,6 +2179,7 @@ impl Repository {
         Ok(results)
     }
 
+    #[allow(dead_code)]
     pub fn update_chat_session_title(
         &self,
         session_id: &str,
@@ -2009,6 +2288,7 @@ impl Repository {
     }
 
     /// Get page summaries for Q&A retrieval, excluding qa-type pages.
+    #[allow(dead_code)]
     pub fn get_wiki_page_summaries_for_qa(&self) -> Result<Vec<(String, String, String)>, Box<dyn std::error::Error>> {
         let conn = self.db.conn.lock().map_err(|e| format!("Lock error: {}", e))?;
         let mut stmt = conn.prepare(
@@ -2026,6 +2306,7 @@ impl Repository {
     /// Whether the FTS5 virtual table exists. False means migration 014
     /// failed to apply (older sqlite without FTS5) — callers should fall
     /// back to the full-index APIs above.
+    #[allow(dead_code)]
     pub fn fts_available(&self) -> bool {
         let conn = match self.db.conn.lock() {
             Ok(c) => c,
@@ -2448,6 +2729,98 @@ mod tests {
 
         let result = repo.update_digest_action("nonexistent", "keep");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_content_for_date_range_returns_only_items_in_range() {
+        let db = test_db();
+        let repo = Repository::new(db);
+
+        repo.save_content(&make_content("old", "2025-01-01T10:00:00Z")).unwrap();
+        repo.save_content(&make_content("mid", "2025-01-03T12:00:00Z")).unwrap();
+        repo.save_content(&make_content("new", "2025-01-05T09:00:00Z")).unwrap();
+
+        let items = repo
+            .get_content_for_date_range("2025-01-02", "2025-01-04")
+            .unwrap();
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "mid");
+    }
+
+    #[test]
+    fn test_get_content_list_truncates_raw_text_and_marks_detail_incomplete() {
+        let db = test_db();
+        let repo = Repository::new(db);
+
+        let mut content = make_content("long", "2025-01-03T12:00:00Z");
+        content.raw_text = Some("a".repeat(260));
+        content.clean_content = Some("clean".to_string());
+        repo.save_content(&content).unwrap();
+        repo.update_clean_content("long", "clean").unwrap();
+
+        let items = repo
+            .get_filtered_content_list(None, None, None, false, 10, 0)
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "long");
+        assert_eq!(items[0].raw_text.as_deref(), Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert_eq!(items[0].raw_text_length, 260);
+        assert!(items[0].has_clean_content);
+        assert!(!items[0].detail_complete);
+        assert!(items[0].clean_content.is_none());
+    }
+
+    #[test]
+    fn test_filtered_content_list_and_counts_respect_date_and_document_split() {
+        let db = test_db();
+        let repo = Repository::new(db);
+
+        let mut text = make_content("text", "2025-01-03T10:00:00Z");
+        text.content_type = ContentType::Text;
+        text.source_app = "Chrome".to_string();
+        repo.save_content(&text).unwrap();
+
+        let mut image = make_content("image", "2025-01-03T11:00:00Z");
+        image.content_type = ContentType::Image;
+        image.source_app = "Finder".to_string();
+        repo.save_content(&image).unwrap();
+
+        let mut document = make_content("doc", "2025-01-03T12:00:00Z");
+        document.content_type = ContentType::Text;
+        document.source_app = IMPORT_SOURCE_APP_CONTENT.to_string();
+        repo.save_content(&document).unwrap();
+
+        let mut old_text = make_content("old-text", "2024-12-20T09:00:00Z");
+        old_text.content_type = ContentType::Text;
+        old_text.source_app = "Chrome".to_string();
+        repo.save_content(&old_text).unwrap();
+
+        let recent_text = repo
+            .get_filtered_content_list(Some("text"), Some("2025-01-01"), Some("2025-01-04"), false, 20, 0)
+            .unwrap();
+        assert_eq!(recent_text.len(), 1);
+        assert_eq!(recent_text[0].id, "text");
+
+        let recent_docs = repo
+            .get_filtered_content_list(Some("document"), Some("2025-01-01"), Some("2025-01-04"), false, 20, 0)
+            .unwrap();
+        assert_eq!(recent_docs.len(), 1);
+        assert_eq!(recent_docs[0].id, "doc");
+
+        let counts = repo
+            .get_content_list_counts(Some("2025-01-01"), Some("2025-01-04"), false)
+            .unwrap();
+        assert_eq!(counts.all, 3);
+        assert_eq!(counts.text, 1);
+        assert_eq!(counts.image, 1);
+        assert_eq!(counts.url, 0);
+        assert_eq!(counts.document, 1);
+
+        let matching_count = repo
+            .count_filtered_content(Some("text"), Some("2025-01-01"), Some("2025-01-04"), false)
+            .unwrap();
+        assert_eq!(matching_count, 1);
     }
 
     #[test]

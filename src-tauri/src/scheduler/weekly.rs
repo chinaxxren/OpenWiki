@@ -1,10 +1,12 @@
 // Weekly report scheduler - will be fully implemented in Phase 3
 // Placeholder for background task scheduling
 
+#[allow(dead_code)]
 pub struct WeeklyScheduler {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl WeeklyScheduler {
     pub fn new() -> Self {
         WeeklyScheduler { enabled: false }

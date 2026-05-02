@@ -1,6 +1,6 @@
 use rusqlite::{functions::FunctionFlags, Connection};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 pub struct Database {
     pub conn: Mutex<Connection>,
@@ -37,6 +37,29 @@ pub fn cjk_segment(input: &str) -> String {
     out
 }
 
+fn sensitive_patterns() -> &'static Vec<regex::Regex> {
+    static PATTERNS: OnceLock<Vec<regex::Regex>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        vec![
+            regex::Regex::new(r#"(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|bearer)\s*[:=]\s*['"]?[A-Za-z0-9_\-./+]{16,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"AKIA[0-9A-Z]{16}"#).expect("regex compiles"),
+            regex::Regex::new(r#"gh[ps]_[A-Za-z0-9_]{36,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"xox[bpras]-[A-Za-z0-9-]{10,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----"#).expect("regex compiles"),
+            regex::Regex::new(r#"-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----"#).expect("regex compiles"),
+            regex::Regex::new(r#"(?:password|passwd|pwd)\s*[:=]\s*['"]?.{4,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"(?:secret|client[_-]?secret)\s*[:=]\s*['"]?[A-Za-z0-9_\-./+]{8,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"sk-[A-Za-z0-9]{20,}"#).expect("regex compiles"),
+            regex::Regex::new(r#"sk-ant-[A-Za-z0-9_-]{20,}"#).expect("regex compiles"),
+        ]
+    })
+}
+
+pub fn contains_sensitive_data(input: &str) -> bool {
+    sensitive_patterns().iter().any(|pattern| pattern.is_match(input))
+}
+
 impl Database {
     /// Register the cjk_seg() SQL function on the given connection.
     /// Must be called once per Connection — used by both the on-disk
@@ -49,6 +72,15 @@ impl Database {
             |ctx| {
                 let input: String = ctx.get(0).unwrap_or_default();
                 Ok(cjk_segment(&input))
+            },
+        )?;
+        conn.create_scalar_function(
+            "contains_sensitive",
+            1,
+            FunctionFlags::SQLITE_DETERMINISTIC | FunctionFlags::SQLITE_UTF8,
+            |ctx| {
+                let input: String = ctx.get(0).unwrap_or_default();
+                Ok(contains_sensitive_data(&input))
             },
         )?;
         Ok(())

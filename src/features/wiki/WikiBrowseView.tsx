@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { BookOpen, User, FileText, GitCompare, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useNavigationStore } from "../../stores/navigationStore";
 import { useWikiStore } from "../../stores/wikiStore";
 import { WikiPageCard } from "./WikiPageCard";
 import { WikiPageDetail } from "./WikiPageDetail";
@@ -16,6 +17,7 @@ const TYPE_FILTERS = [
 
 export function WikiBrowseView() {
   const { t } = useTranslation("wiki");
+  const navigate = useNavigationStore((s) => s.navigate);
   const {
     pages, selectedPage, isLoadingPages, filterType, error,
     loadPages, selectPage, clearSelection, setFilterType, deletePage,
@@ -27,10 +29,8 @@ export function WikiBrowseView() {
 
   const handleNavigateToContent = useCallback((contentId: string) => {
     clearSelection();
-    window.dispatchEvent(
-      new CustomEvent("navigate-to-content", { detail: { contentIds: [contentId] } })
-    );
-  }, [clearSelection]);
+    navigate({ type: "content", contentIds: [contentId] });
+  }, [clearSelection, navigate]);
 
   return (
     <div className="flex gap-0 h-full">

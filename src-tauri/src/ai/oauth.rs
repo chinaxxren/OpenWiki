@@ -504,6 +504,7 @@ pub async fn get_valid_token(db: Arc<Database>) -> Option<(String, String)> {
 }
 
 /// Get the current OAuth status (for display in the settings UI).
+#[allow(dead_code)]
 pub fn get_oauth_status() -> OAuthStatus {
     let guard = OAUTH_STATE.lock().unwrap();
     match guard.as_ref() {

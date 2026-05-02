@@ -164,6 +164,7 @@ Notes:
 
 /// Prompt for summarizing a single content item before feeding into the weekly report.
 /// Used to truncate and summarize long content items.
+#[allow(dead_code)]
 pub fn content_summarize_prompt(raw_text: &str, content_type: &str, source_app: &str, locale: &str) -> String {
     if crate::locale::is_english(locale) {
         format!(
@@ -192,6 +193,7 @@ Return only the summary text — no prefixes or formatting."#
 
 /// Prompt for extracting topic keywords from a piece of content.
 /// Used by the preference engine when user marks content as "interested".
+#[allow(dead_code)]
 pub fn topic_extraction_prompt(text: &str, locale: &str) -> String {
     if crate::locale::is_english(locale) {
         format!(
@@ -225,6 +227,7 @@ Example output: artificial intelligence,deep learning,natural language processin
 }
 
 /// Prompt for clustering content items into topic groups.
+#[allow(dead_code)]
 pub fn topic_clustering_prompt(content_list: &str, locale: &str) -> String {
     if crate::locale::is_english(locale) {
         format!(

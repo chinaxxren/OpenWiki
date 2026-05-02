@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { FolderOpen, LoaderCircle, Package, Upload } from "lucide-react";
 import { useDataHubStore } from "../../stores/dataHubStore";
 import { exportAll, openExportDir } from "../../services/dataHubService";
 
@@ -52,7 +53,7 @@ export function ExportPanel({ onClose }: ExportPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/30 dark:border-white/[0.06]">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <span>📤</span>
+            <Upload className="w-4 h-4 text-orange-500 dark:text-orange-400" />
             {t("export.title")}
           </h3>
           <button
@@ -94,12 +95,12 @@ export function ExportPanel({ onClose }: ExportPanelProps) {
           >
             {isExporting ? (
               <>
-                <span className="animate-spin">⏳</span>
+                <LoaderCircle className="w-4 h-4 animate-spin" />
                 <span>{t("export.exporting")}</span>
               </>
             ) : (
               <>
-                <span>📦</span>
+                <Package className="w-4 h-4" />
                 <span>{t("export.exportAll")}</span>
               </>
             )}
@@ -123,7 +124,7 @@ export function ExportPanel({ onClose }: ExportPanelProps) {
                        hover:bg-white/80 dark:hover:bg-white/[0.08]
                        transition-all duration-150"
           >
-            <span>📁</span>
+            <FolderOpen className="w-4 h-4" />
             <span>{t("export.openInFinder")}</span>
           </button>
         </div>

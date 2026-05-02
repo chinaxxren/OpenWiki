@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronRight, FolderOpen, Inbox, Settings2 } from "lucide-react";
 import { useDataHubStore } from "../../stores/dataHubStore";
 import { openExportDir } from "../../services/dataHubService";
 
@@ -51,7 +52,7 @@ export function DateSidebar({ totalItems, totalDates, onOpenExportPanel }: DateS
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {monthGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <span className="text-2xl mb-2">📭</span>
+            <Inbox className="w-6 h-6 mb-2 text-orange-400/80" />
             <p className="text-xs text-gray-400 dark:text-slate-500">
               {t("sidebar.noData")}
             </p>
@@ -67,9 +68,11 @@ export function DateSidebar({ totalItems, totalDates, onOpenExportPanel }: DateS
                            rounded-lg transition-colors"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-400 dark:text-slate-500">
-                    {group.expanded ? "▼" : "►"}
-                  </span>
+                  {group.expanded ? (
+                    <ChevronDown className="w-3 h-3 text-gray-400 dark:text-slate-500" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 text-gray-400 dark:text-slate-500" />
+                  )}
                   <span>{group.label}</span>
                 </div>
                 <span
@@ -129,7 +132,7 @@ export function DateSidebar({ totalItems, totalDates, onOpenExportPanel }: DateS
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-slate-300
                      hover:bg-white/50 dark:hover:bg-white/[0.06] rounded-lg transition-colors"
         >
-          <span>&#x2699;&#xFE0F;</span>
+          <Settings2 className="w-4 h-4 text-orange-500 dark:text-orange-400" />
           <span>{t("sidebar.exportSettings")}</span>
         </button>
         <button
@@ -137,7 +140,7 @@ export function DateSidebar({ totalItems, totalDates, onOpenExportPanel }: DateS
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-slate-300
                      hover:bg-white/50 dark:hover:bg-white/[0.06] rounded-lg transition-colors"
         >
-          <span>&#x1F4C1;</span>
+          <FolderOpen className="w-4 h-4 text-orange-500 dark:text-orange-400" />
           <span>{t("sidebar.openFolder")}</span>
         </button>
       </div>

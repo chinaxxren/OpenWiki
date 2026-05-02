@@ -105,7 +105,7 @@ export function FloatingBubble() {
   // Content preview text
   const previewText = pending
     ? pending.content_type === "image"
-      ? `📷 ${t("bubble.screenshotImage")}`
+      ? t("bubble.screenshotImage")
       : pending.preview.length > 30
         ? pending.preview.slice(0, 30) + "..."
         : pending.preview

@@ -1,4 +1,4 @@
-import { BookOpen, User, FileText, GitCompare, Layers, MessageCircle } from "lucide-react";
+import { AlertTriangle, BookOpen, User, FileText, GitCompare, Layers, MessageCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WikiPage } from "../../types/wiki";
 
@@ -58,7 +58,10 @@ export function WikiPageCard({ page, onClick }: WikiPageCardProps) {
           </span>
           {isStale && (
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              ⚠ {t("card.stale")}
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                {t("card.stale")}
+              </span>
             </span>
           )}
         </div>

@@ -112,10 +112,12 @@ fn compute_dedup_keys(event: &serde_json::Value) -> Vec<String> {
     }
 }
 
+#[cfg(test)]
 fn is_xiaoyun_source_app(source_app: &str) -> bool {
     source_app.eq_ignore_ascii_case("xiaoyun")
 }
 
+#[cfg(test)]
 fn should_show_confirmation_bubble(event: &serde_json::Value) -> bool {
     let content_type = event
         .get("content_type")
@@ -422,7 +424,7 @@ fn make_window_transparent(win: &tauri::WebviewWindow) {
     // via run_on_main_thread, so no dispatch needed. This ensures transparency is
     // fully applied BEFORE the window becomes visible.
     unsafe {
-        use objc2::runtime::{AnyClass, AnyObject, Sel};
+        use objc2::runtime::{AnyClass, AnyObject};
 
         let ns_view: &AnyObject = &*(ns_view_ptr as *const AnyObject);
 
@@ -788,6 +790,7 @@ impl CaptureDetector {
         log::info!("Capture detector started with auto-save enabled");
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self) {
         log::info!("Stopping capture detector...");
         self.clipboard_watcher.stop();

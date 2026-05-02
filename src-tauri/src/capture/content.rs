@@ -6,6 +6,7 @@ pub fn compute_hash(data: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+#[allow(dead_code)]
 pub fn truncate_preview(text: &str, max_len: usize) -> String {
     if text.len() <= max_len {
         text.to_string()

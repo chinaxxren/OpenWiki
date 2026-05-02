@@ -148,6 +148,7 @@ impl ScreenshotWatcher {
         is_image && is_screenshot_name
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
     }

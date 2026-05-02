@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
+import { Clipboard, FileText, Image as ImageIcon, Link2, type LucideIcon } from "lucide-react";
 
 /** Payload emitted from Rust via `spotlight:content-ready`. */
 interface SpotlightPayload {
@@ -13,10 +14,10 @@ interface SpotlightPayload {
 }
 
 /** Content type icon mapping. */
-const TYPE_ICON: Record<string, string> = {
-  text: "📝",
-  url: "🔗",
-  image: "🖼️",
+const TYPE_ICON: Record<string, LucideIcon> = {
+  text: FileText,
+  url: Link2,
+  image: ImageIcon,
 };
 
 export default function SpotlightView() {
@@ -115,7 +116,7 @@ export default function SpotlightView() {
     [handleSave, hideWindow]
   );
 
-  const icon = payload ? (TYPE_ICON[payload.content_type] ?? "📋") : "📋";
+  const TypeIcon = payload ? (TYPE_ICON[payload.content_type] ?? Clipboard) : Clipboard;
 
   return (
     <div
@@ -125,9 +126,7 @@ export default function SpotlightView() {
     >
       {/* Icon */}
       {payload && (
-        <span data-tauri-drag-region className="text-lg text-white/50 shrink-0">
-          {icon}
-        </span>
+        <TypeIcon data-tauri-drag-region className="w-5 h-5 text-white/50 shrink-0" />
       )}
 
       {/* Input */}

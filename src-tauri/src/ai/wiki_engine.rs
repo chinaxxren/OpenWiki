@@ -873,6 +873,7 @@ pub fn link_pages_by_shared_tags(db: Arc<Database>) -> Result<usize, String> {
 }
 
 /// Handle content update: mark sources as stale if hash changed.
+#[allow(dead_code)]
 pub fn on_content_updated(
     db: Arc<Database>,
     content_id: &str,

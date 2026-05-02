@@ -57,6 +57,45 @@ pub struct CapturedContent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentListItem {
+    pub id: String,
+    pub content_type: ContentType,
+    pub raw_text: Option<String>,
+    pub image_path: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub source_app: String,
+    pub source_bundle_id: Option<String>,
+    pub source_url: Option<String>,
+    pub user_note: Option<String>,
+    pub captured_at: String,
+    pub content_hash: String,
+    pub byte_size: i64,
+    pub is_deleted: bool,
+    pub created_at: String,
+    pub updated_at: String,
+    pub digested_at: Option<String>,
+    pub digest_action: Option<String>,
+    pub summary: Option<String>,
+    pub tags: Option<String>,
+    pub digest: Option<String>,
+    pub wiki_compile_hash: Option<String>,
+    pub wiki_assessed_hash: Option<String>,
+    pub clean_content: Option<String>,
+    pub detail_complete: bool,
+    pub raw_text_length: i64,
+    pub has_clean_content: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ContentListCounts {
+    pub all: i64,
+    pub text: i64,
+    pub image: i64,
+    pub url: i64,
+    pub document: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeeklyReport {
     pub id: String,
     pub week_start: String,
@@ -203,6 +242,7 @@ pub struct WikiEdge {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct WikiCompileLog {
     pub id: i64,
     pub content_id: String,

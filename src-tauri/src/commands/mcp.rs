@@ -471,7 +471,7 @@ mod tests {
             MCP_SERVER_KEY.to_string(),
             serde_json::json!({"command": "npx", "args": ["-y", "mcp-server-sqlite-npx"]}),
         );
-        assert!(config["mcpServers"]["xiaoyun"]["command"] == "npx");
+        assert!(config["mcpServers"][MCP_SERVER_KEY]["command"] == "npx");
     }
 
     #[test]
@@ -487,21 +487,21 @@ mod tests {
         );
         // Both entries should exist
         assert!(config["mcpServers"]["other-tool"]["command"] == "other");
-        assert!(config["mcpServers"]["xiaoyun"]["command"] == "npx");
+        assert!(config["mcpServers"][MCP_SERVER_KEY]["command"] == "npx");
     }
 
     #[test]
     fn test_remove_xiaoyun_entry() {
         let mut config = serde_json::json!({
             "mcpServers": {
-                "xiaoyun": {"command": "npx"},
+                "openwiki": {"command": "npx"},
                 "other-tool": {"command": "other"}
             }
         });
         if let Some(servers) = config.get_mut("mcpServers").and_then(|s| s.as_object_mut()) {
             servers.remove(MCP_SERVER_KEY);
         }
-        assert!(config["mcpServers"].get("xiaoyun").is_none());
+        assert!(config["mcpServers"].get(MCP_SERVER_KEY).is_none());
         assert!(config["mcpServers"]["other-tool"]["command"] == "other");
     }
 
@@ -542,7 +542,7 @@ mod tests {
             MCP_SERVER_KEY.to_string(),
             serde_json::json!({"command": "npx"}),
         );
-        assert!(config["mcpServers"]["xiaoyun"]["command"] == "npx");
+        assert!(config["mcpServers"][MCP_SERVER_KEY]["command"] == "npx");
         assert!(config["someOtherKey"] == true);
     }
 
@@ -561,7 +561,7 @@ mod tests {
 
         // Verify connected
         let config = read_config(&path).unwrap();
-        assert!(config["mcpServers"]["xiaoyun"].is_object());
+        assert!(config["mcpServers"][MCP_SERVER_KEY].is_object());
         assert!(config["mcpServers"]["existing"].is_object());
 
         // Disconnect
@@ -574,7 +574,7 @@ mod tests {
 
         // Verify disconnected
         let config = read_config(&path).unwrap();
-        assert!(config["mcpServers"].get("xiaoyun").is_none());
+        assert!(config["mcpServers"].get(MCP_SERVER_KEY).is_none());
         assert!(config["mcpServers"]["existing"]["command"] == "foo");
     }
 }

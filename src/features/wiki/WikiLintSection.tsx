@@ -20,22 +20,26 @@ export function WikiLintSection({ compact = false }: WikiLintSectionProps) {
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState<number | null>(null);
 
-  const load = async () => {
-    try {
-      const r = await getWikiLintResults();
-      setResults(r);
-    } catch (e) {
-      console.error("Failed to load lint results:", e);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      try {
+        const r = await getWikiLintResults();
+        if (!cancelled) setResults(r);
+      } catch (e) {
+        console.error("Failed to load lint results:", e);
+      }
+    };
+    void init();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleRefresh = async () => {
     setLoading(true);
     try {
       await triggerWikiLint();
-      await load();
+      const refreshed = await getWikiLintResults();
+      setResults(refreshed);
     } catch (e) {
       console.error("Lint failed:", e);
     }
@@ -48,7 +52,7 @@ export function WikiLintSection({ compact = false }: WikiLintSectionProps) {
       if (action === "keep") await wikiLintKeep(id);
       else if (action === "delete") await wikiLintDelete(id);
       else await wikiLintRecompile(id);
-      setResults(results.filter((r) => r.id !== id));
+      setResults((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error("Lint action failed:", e);
     }

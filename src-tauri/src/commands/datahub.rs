@@ -22,9 +22,18 @@ fn resolve_export_dir(repo: &Repository) -> PathBuf {
 pub async fn search_content(
     query: String,
     state: State<'_, AppState>,
+    limit: Option<i64>,
 ) -> Result<Vec<CapturedContent>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Keep search result size bounded for responsive dropdown rendering.
+    let lim = limit.unwrap_or(50).clamp(1, 100);
+
     let repo = Repository::new(state.db.clone());
-    repo.search_content(&query, 50).map_err(|e| e.to_string())
+    repo.search_content(trimmed, lim).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -186,7 +195,6 @@ pub async fn open_data_folder() -> Result<(), String> {
 
 #[tauri::command]
 pub async fn get_storage_info(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    let repo = Repository::new(state.db.clone());
     let conn = state.db.conn.lock().map_err(|e| e.to_string())?;
 
     // Count non-deleted items

@@ -37,9 +37,18 @@ pub fn get_wiki_page(
 pub fn search_wiki(
     state: State<'_, AppState>,
     query: String,
+    limit: Option<i64>,
 ) -> Result<Vec<WikiPage>, String> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Keep wiki search bounded for responsive header dropdown rendering.
+    let lim = limit.unwrap_or(20).clamp(1, 100);
+
     let repo = Repository::new(state.db.clone());
-    repo.search_wiki_pages(&query, 20)
+    repo.search_wiki_pages(trimmed, lim)
         .map_err(|e| e.to_string())
 }
 
@@ -676,9 +685,6 @@ pub async fn trigger_wiki_lint(
 ) -> Result<Vec<WikiLintResult>, String> {
     let repo = Repository::new(state.db.clone());
 
-    // Local checks first (no AI needed)
-    let mut results = Vec::new();
-
     // Check for needs_recompile pages
     let stale_pages = repo
         .get_wiki_pages_by_status("needs_recompile")
@@ -707,10 +713,7 @@ pub async fn trigger_wiki_lint(
         );
     }
 
-    results = repo
-        .get_open_lint_results()
-        .map_err(|e| e.to_string())?;
-
+    let results = repo.get_open_lint_results().map_err(|e| e.to_string())?;
     Ok(results)
 }
 

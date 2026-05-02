@@ -1082,6 +1082,7 @@ async fn translate_bilingual(client: &Client, text: &str) -> String {
 
 /// Translate text to Chinese using free Google Translate API.
 /// Splits long text into chunks to avoid API limits.
+#[allow(dead_code)]
 async fn translate_to_chinese(client: &Client, text: &str) -> String {
     // Split into chunks of ~1500 chars (smaller = more reliable with free API)
     let mut chunks: Vec<String> = Vec::new();
@@ -1244,6 +1245,7 @@ fn extract_markdown_title(markdown: &str) -> Option<String> {
 // ─── WeChat helpers ────────────────────────────────────────────────
 
 /// Extract item_show_type from WeChat HTML (0=article, 5=video, 7=gallery, 8=image, 10=channels video)
+#[allow(dead_code)]
 fn extract_wechat_show_type(html: &str) -> Option<u32> {
     // item_show_type = "10" or item_show_type = '10'
     for pat in &["item_show_type = \"", "item_show_type = '"] {

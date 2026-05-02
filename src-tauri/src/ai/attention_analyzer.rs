@@ -18,6 +18,7 @@ fn local_provider_gate() -> &'static Semaphore {
 // ====================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BriefingTopic {
     pub id: String,
     pub rank: u32,
@@ -33,6 +34,7 @@ pub struct BriefingTopic {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BriefingMeta {
     pub total_content: u32,
     pub window_days: u32,
@@ -40,6 +42,7 @@ pub struct BriefingMeta {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BriefingAnalysis {
     pub format_version: u32,
     pub topics: Vec<BriefingTopic>,
@@ -198,6 +201,7 @@ pub struct Footer {
 
 /// Build system prompt and user message from content items (old v2 format).
 /// Each item is (id, raw_text, source_url, captured_at).
+#[allow(dead_code)]
 pub fn build_prompt(
     items: &[(String, Option<String>, Option<String>, String)],
 ) -> (String, String) {
@@ -459,6 +463,7 @@ fn truncate_str(s: &str, max_chars: usize) -> String {
 // ====================================================================
 
 /// Parse and validate a BriefingAnalysis JSON string (v2).
+#[allow(dead_code)]
 pub fn validate_analysis(json_str: &str, item_count: usize) -> Result<BriefingAnalysis, String> {
     let cleaned = extract_json(json_str);
 
@@ -585,6 +590,7 @@ pub enum AnalysisProvider {
 }
 
 impl AnalysisProvider {
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> Self {
         Self::from_str_with_base(s, "")
     }
@@ -1385,7 +1391,7 @@ mod tests {
             .map(|i| {
                 (
                     format!("id-{}", i),
-                    Some("a".repeat(1000)),
+                    Some("a".repeat(3500)),
                     Some(format!("https://example.com/{}", i)),
                     "2024-03-25".to_string(),
                 )
@@ -1396,8 +1402,8 @@ mod tests {
         assert!(!system.is_empty());
         assert!(user.contains("[0]"));
         assert!(user.contains("[4]"));
-        assert!(user.contains(&"a".repeat(500)));
-        assert!(!user.contains(&"a".repeat(501)));
+        assert!(user.contains(&"a".repeat(3000)));
+        assert!(!user.contains(&"a".repeat(3001)));
     }
 
     #[test]

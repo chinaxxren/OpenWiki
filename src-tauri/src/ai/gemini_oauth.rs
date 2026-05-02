@@ -571,6 +571,7 @@ pub async fn get_valid_token(db: Arc<Database>) -> Option<(String, String)> {
 }
 
 /// Get the current Gemini OAuth status (for display in the settings UI).
+#[allow(dead_code)]
 pub fn get_gemini_oauth_status() -> GeminiOAuthStatus {
     let guard = GEMINI_OAUTH_STATE.lock().unwrap();
     match guard.as_ref() {

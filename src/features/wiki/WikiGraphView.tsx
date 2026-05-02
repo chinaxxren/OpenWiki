@@ -172,11 +172,6 @@ function WikiGraphViewInner() {
     ctx.restore();
   }, [getNodeRadius]);
 
-  const tick = useCallback(() => {
-    draw();
-    rafRef.current = requestAnimationFrame(tick);
-  }, [draw]);
-
   // Setup simulation
   useEffect(() => {
     if (!graphData || graphData.nodes.length === 0) return;
@@ -188,7 +183,7 @@ function WikiGraphViewInner() {
       .map(e => ({ source: e.source, target: e.target, relation: e.relation, weight: e.weight }));
 
     nodesRef.current = nodes;
-    linksRef.current = links as any;
+    linksRef.current = links;
 
     simRef.current?.stop();
 
@@ -204,10 +199,14 @@ function WikiGraphViewInner() {
 
     simRef.current = sim;
     cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(tick);
+    const renderTick = () => {
+      draw();
+      rafRef.current = requestAnimationFrame(renderTick);
+    };
+    rafRef.current = requestAnimationFrame(renderTick);
 
     return () => { sim.stop(); cancelAnimationFrame(rafRef.current); };
-  }, [graphData, tick]);
+  }, [graphData, draw]);
 
   // Resize canvas
   useEffect(() => {

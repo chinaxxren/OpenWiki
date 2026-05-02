@@ -216,6 +216,9 @@ pub fn run() {
             commands::capture::get_contents_by_ids,
             commands::capture::test_ai_connection,
             commands::storage::get_all_content,
+            commands::storage::get_content_page_with_info,
+            commands::storage::get_filtered_content_list_page_with_info,
+            commands::storage::get_content_for_date_range,
             commands::storage::delete_content,
             commands::report::generate_report,
             commands::report::get_report,
@@ -432,6 +435,7 @@ fn is_reopen_suppressed(app: &tauri::AppHandle) -> bool {
     }
 }
 
+#[cfg(test)]
 fn should_show_main_on_reopen(main_hidden: bool, reopen_suppressed: bool) -> bool {
     main_hidden && !reopen_suppressed
 }

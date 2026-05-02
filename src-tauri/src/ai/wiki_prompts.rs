@@ -776,6 +776,7 @@ pub fn query_rewrite_user_message(
 }
 
 /// System prompt for wiki lint — health check.
+#[allow(dead_code)]
 pub fn lint_system_prompt(locale: &str) -> String {
     if crate::locale::is_english(locale) {
         r#"You are the health checker for the "OpenWiki" knowledge base. Your task is to check the knowledge base for consistency and completeness.
@@ -823,6 +824,7 @@ pub fn lint_system_prompt(locale: &str) -> String {
 }
 
 /// User message for lint.
+#[allow(dead_code)]
 pub fn lint_user_message(
     pages: &[(String, String, String, String)], // (id, title, summary, page_type)
     locale: &str,

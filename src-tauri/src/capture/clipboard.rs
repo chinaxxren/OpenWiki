@@ -64,6 +64,7 @@ impl ClipboardWatcher {
     }
 
     /// Create a watcher with a custom polling interval (in milliseconds).
+    #[allow(dead_code)]
     pub fn with_interval(interval_ms: u64) -> Self {
         ClipboardWatcher {
             running: Arc::new(AtomicBool::new(false)),
@@ -207,6 +208,7 @@ impl ClipboardWatcher {
         });
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
     }

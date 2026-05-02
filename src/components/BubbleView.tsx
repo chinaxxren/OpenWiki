@@ -3,7 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { useTranslation } from "react-i18next";
+import { Clipboard, Image as ImageIcon, Link2 } from "lucide-react";
 
 const DEFAULT_COUNTDOWN = 5;
 const CIRCLE_SIZE = 48;
@@ -38,7 +40,7 @@ export default function BubbleView() {
   const [memo, setMemo] = useState("");
   const [bubblePosition, setBubblePosition] = useState("bottom-right");
   const [defaultAction, setDefaultAction] = useState<"save" | "dismiss">("dismiss");
-  // ★ Key state: once confirmed, ONLY render success UI. Nothing can override this.
+  // Key state: once confirmed, ONLY render success UI. Nothing can override this.
   const [confirmed, setConfirmed] = useState(false);
   // Failure state: when confirm_capture throws a real error (not just
   // "Moved to top" dedup), we expand to a red capsule showing the error
@@ -68,7 +70,11 @@ export default function BubbleView() {
   const dismiss = useCallback(async () => {
     const capture = pendingRef.current;
     clearTimer();
-    try { await invoke("dismiss_capture", { imagePath: capture?.image_path ?? null }); } catch {}
+    try {
+      await invoke("dismiss_capture", { imagePath: capture?.image_path ?? null });
+    } catch (e) {
+      console.error("dismiss_capture failed:", e);
+    }
     await closeWindow();
   }, [clearTimer, closeWindow]);
 
@@ -107,15 +113,17 @@ export default function BubbleView() {
       if (!expanded) {
         try {
           const win = appWindow.current;
-          const { LogicalSize, LogicalPosition } = await import("@tauri-apps/api/dpi");
           const scale = await win.scaleFactor();
           const pos = await win.outerPosition();
           const heightDiff = EXPANDED_H - CIRCLE_WIN_H;
           await win.setPosition(new LogicalPosition(pos.x / scale, pos.y / scale - heightDiff));
           await win.setSize(new LogicalSize(CAPSULE_W, EXPANDED_H));
-        } catch {}
+        } catch (e) {
+          console.error("Failed to resize bubble for failure state:", e);
+        }
       }
       setSaving(false);
+      setFailureCountdown(10);
       setFailureError(backendError!);
       return;
     }
@@ -124,13 +132,14 @@ export default function BubbleView() {
     if (expanded) {
       try {
         const win = appWindow.current;
-        const { LogicalSize, LogicalPosition } = await import("@tauri-apps/api/dpi");
         const scale = await win.scaleFactor();
         const pos = await win.outerPosition();
         const heightDiff = EXPANDED_H - CIRCLE_WIN_H;
         await win.setPosition(new LogicalPosition(pos.x / scale, pos.y / scale + heightDiff));
         await win.setSize(new LogicalSize(CAPSULE_W, CIRCLE_WIN_H));
-      } catch {}
+      } catch (e) {
+        console.error("Failed to shrink bubble after confirm:", e);
+      }
     }
 
     // Show confirmed state — no DOM swap, just CSS transitions on existing elements
@@ -139,9 +148,13 @@ export default function BubbleView() {
 
     // Close window after 1.2 seconds
     setTimeout(async () => {
-      try { await appWindow.current.close(); } catch {}
+      try {
+        await appWindow.current.close();
+      } catch (e) {
+        console.error("Failed to close bubble window:", e);
+      }
     }, 1200);
-  }, [saving, confirmed, clearTimer, memo, expanded, bubblePosition, bubbleStyle]);
+  }, [saving, confirmed, clearTimer, memo, expanded]);
 
   // Retry from the failure state: reset failureError + saving, then call
   // confirm() again. confirm() will re-invoke the backend and route to
@@ -179,7 +192,6 @@ export default function BubbleView() {
     // Resize native window and move it up so it expands upward (not behind Dock)
     try {
       const win = appWindow.current;
-      const { LogicalSize, LogicalPosition } = await import("@tauri-apps/api/dpi");
       const scale = await win.scaleFactor();
       const pos = await win.outerPosition();
       const heightDiff = EXPANDED_H - CIRCLE_WIN_H; // 140 - 48 = 92px
@@ -205,13 +217,14 @@ export default function BubbleView() {
     // Resize window back to circle
     try {
       const win = appWindow.current;
-      const { LogicalSize, LogicalPosition } = await import("@tauri-apps/api/dpi");
       const scale = await win.scaleFactor();
       const pos = await win.outerPosition();
       const heightDiff = EXPANDED_H - CIRCLE_WIN_H;
       await win.setPosition(new LogicalPosition(pos.x / scale, pos.y / scale + heightDiff));
       await win.setSize(new LogicalSize(CAPSULE_W, CIRCLE_WIN_H));
-    } catch {}
+    } catch (e) {
+      console.error("Failed to collapse bubble window:", e);
+    }
   }, [expanded, confirmed]);
 
   // On mount: fetch pending data + bubble style + default_action
@@ -226,7 +239,9 @@ export default function BubbleView() {
           if (secs >= 1 && secs <= 30) { setCountdownMax(secs); setCountdown(secs); }
         }
         if (settings?.default_action === "save") setDefaultAction("save");
-      } catch {}
+      } catch (e) {
+        console.error("Failed to load bubble settings:", e);
+      }
       try {
         const data = await invoke<PendingCapture | null>("get_pending_capture");
         if (data) { setPending(data); }
@@ -236,7 +251,7 @@ export default function BubbleView() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ★ Global keyboard listener
+  // Global keyboard listener
   useEffect(() => {
     if (!pending || confirmed) return;
 
@@ -271,7 +286,7 @@ export default function BubbleView() {
     return () => window.removeEventListener("keydown", handler);
   }, [pending, confirmed, expanded, defaultAction, bubbleStyle, confirm, dismiss, expandToCapsule, collapseCapsule]);
 
-  // ★ Listen for new capture events — UNSUBSCRIBE when expanded or confirmed
+  // Listen for new capture events — UNSUBSCRIBE when expanded or confirmed
   useEffect(() => {
     if (expanded || confirmed) {
       invoke("debug_log", { message: `[LISTENER] expanded=${expanded} confirmed=${confirmed}, NOT listening` }).catch(() => {});
@@ -289,7 +304,7 @@ export default function BubbleView() {
   }, [expanded, confirmed, clearTimer, countdownMax]);
 
   // Countdown (only when NOT expanded and NOT confirmed)
-  // ★ When countdown reaches 0, execute default_action (not always dismiss)
+  // When countdown reaches 0, execute default_action (not always dismiss)
   useEffect(() => {
     if (!pending || expanded || confirmed || failureError) return;
     timerRef.current = setInterval(() => {
@@ -312,7 +327,6 @@ export default function BubbleView() {
   // hang around forever if they walked away from the computer.
   useEffect(() => {
     if (!failureError) return;
-    setFailureCountdown(10);
     let remaining = 10;
     const timer = setInterval(() => {
       remaining -= 1;
@@ -344,6 +358,7 @@ export default function BubbleView() {
 
   const isImage = pending.content_type === "image";
   const isUrl = pending.content_type === "url";
+  const ContentTypeIcon = isImage ? ImageIcon : isUrl ? Link2 : Clipboard;
 
   // Preview text for the expanded view
   const previewText = isImage
@@ -585,7 +600,7 @@ export default function BubbleView() {
               ) : isUrl ? (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]">🔗</span>
+                    <Link2 className="w-3 h-3 text-orange-300/80" />
                     <span className="text-[10px] text-white/30 uppercase">{pending.source_app}</span>
                   </div>
                   <p className="text-[12px] text-white/70 leading-snug line-clamp-2">
@@ -595,7 +610,7 @@ export default function BubbleView() {
               ) : (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]">📋</span>
+                    <Clipboard className="w-3 h-3 text-orange-300/80" />
                     <span className="text-[10px] text-white/30 uppercase">{pending.source_app}</span>
                   </div>
                   <p className="text-[12px] text-white/70 leading-snug line-clamp-2">
@@ -705,7 +720,7 @@ export default function BubbleView() {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm leading-none">{isImage ? "📷" : isUrl ? "🔗" : "📋"}</span>
+                <ContentTypeIcon className="w-3.5 h-3.5 text-orange-200/90" />
               </div>
             </div>
           </div>
@@ -761,7 +776,7 @@ export default function BubbleView() {
   const iconBg = isImage
     ? "from-pink-500/20 to-rose-500/20"
     : "from-orange-500/20 to-amber-500/20";
-  const iconEmoji = isImage ? "📷" : isUrl ? "🔗" : "📋";
+  const BarIcon = isImage ? ImageIcon : isUrl ? Link2 : Clipboard;
 
   // In bar mode, only the explicit save button should trigger a save/dismiss
   // when the default action is "dismiss". Clicking the whole bar looked like a
@@ -818,7 +833,7 @@ export default function BubbleView() {
               </defs>
             </svg>
             <div className={`absolute inset-[5px] rounded-full bg-gradient-to-br ${iconBg} flex items-center justify-center`}>
-              <span className="text-sm">{iconEmoji}</span>
+              <BarIcon className="w-4 h-4 text-orange-200/90" />
             </div>
           </div>
           <div className="flex flex-col min-w-0 flex-1 gap-0.5">
