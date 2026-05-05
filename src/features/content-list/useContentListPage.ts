@@ -3,6 +3,10 @@ import { useContentDeletionEventStore } from "../../stores/contentDeletionEventS
 import { useContentStore } from "../../stores/contentStore";
 import { useContentListQueryStore } from "../../stores/contentListQueryStore";
 import { useDiagnosticsStore } from "../../stores/diagnosticsStore";
+import {
+  getContentListBucket,
+  matchesContentListQuery,
+} from "../../lib/contentListQuery";
 import type { ContentListCounts } from "../../services/storageService";
 import {
   fetchContentListPage,
@@ -10,11 +14,9 @@ import {
   type ContentListFilter,
 } from "../../services/contentListService";
 import {
-  getContentListBucket,
   getEmptyFilterPrefetchBudget,
   getFilteredLoadPageSize,
   getFilterConstraintScore,
-  matchesContentListQuery,
 } from "./contentListLogic";
 
 const PAGE_SIZE = 50;

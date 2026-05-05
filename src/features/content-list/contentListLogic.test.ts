@@ -1,16 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { formatLocalDateKey } from "../../lib/dateUtils";
+import {
+  getContentListBucket,
+  isImportedDocument,
+  matchesContentListDateRange,
+  matchesContentListQuery,
+  shouldDecrementTotalForDeletedContent,
+} from "../../lib/contentListQuery";
 import {
   countCommaSeparatedTags,
   getEmptyFilterPrefetchBudget,
   getFilteredLoadPageSize,
   getFilterConstraintScore,
-  getContentListBucket,
   getImportKind,
-  isImportedDocument,
-  matchesContentListDateRange,
-  matchesContentListQuery,
-  shouldDecrementTotalForDeletedContent,
 } from "./contentListLogic";
 
 test("getFilterConstraintScore counts active constraints", () => {
@@ -71,10 +74,11 @@ test("matchesContentListDateRange checks today, week and half-month windows", ()
 });
 
 test("matchesContentListQuery applies filter, date range and sensitive filtering", () => {
+  const todayCapturedAt = `${formatLocalDateKey(new Date())}T08:00:00+08:00`;
   const content = {
     content_type: "text" as const,
     source_app: "Markdown 导入",
-    captured_at: "2026-05-02T08:00:00+08:00",
+    captured_at: todayCapturedAt,
     raw_text: "ordinary note",
   };
   assert.equal(matchesContentListQuery(content, "document", "today", false), true);
@@ -92,10 +96,11 @@ test("matchesContentListQuery applies filter, date range and sensitive filtering
 });
 
 test("shouldDecrementTotalForDeletedContent only decrements when deleted content matches active query", () => {
+  const todayCapturedAt = `${formatLocalDateKey(new Date())}T08:00:00+08:00`;
   const content = {
     content_type: "url" as const,
     source_app: "Safari",
-    captured_at: "2026-05-02T08:00:00+08:00",
+    captured_at: todayCapturedAt,
     raw_text: "https://example.com",
   };
 

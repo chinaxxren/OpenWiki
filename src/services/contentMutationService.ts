@@ -1,5 +1,5 @@
 import { deleteContent } from "./storageService";
-import { shouldDecrementTotalForDeletedContent } from "../features/content-list/contentListLogic";
+import { shouldDecrementTotalForDeletedContent } from "../lib/contentListQuery";
 import { useContentDeletionEventStore } from "../stores/contentDeletionEventStore";
 import { useContentListQueryStore } from "../stores/contentListQueryStore";
 import { useContentStore } from "../stores/contentStore";

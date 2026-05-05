@@ -27,9 +27,9 @@ import { useContentImport } from "./useContentImport";
 import { ImportNotice } from "./ImportNotice";
 import { ImportPanel } from "./ImportPanel";
 import { ContentListToolbar } from "./ContentListToolbar";
+import { getContentListBucket } from "../../lib/contentListQuery";
 import {
   countCommaSeparatedTags,
-  getContentListBucket,
   getImportKind,
 } from "./contentListLogic";
 import { exportAllSingle, exportRangeSingle } from "../../services/dataHubService";
